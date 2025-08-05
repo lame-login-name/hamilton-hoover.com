@@ -1,14 +1,113 @@
 # Non-production environment variables
 # Variables for staging, development, and test infrastructure with cost optimization focus
 
+# Generic variables for standardized infrastructure patterns
+# These provide consistent naming across environments while maintaining backward compatibility
+
+variable "project_id" {
+  description = "Primary project ID for non-production infrastructure deployment"
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.project_id == "" || can(regex("^[a-z][-a-z0-9]{4,28}[a-z0-9]$", var.project_id))
+    error_message = "Project ID must be between 6 and 30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
+variable "network_name" {
+  description = "Primary network name for non-production VPC"
+  type        = string
+  default     = "nonprod-vpc"
+  validation {
+    condition     = can(regex("^[a-z][-a-z0-9]*[a-z0-9]$", var.network_name))
+    error_message = "Network name must start with a letter and contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
+variable "subnet_regions" {
+  description = "List of regions for subnet deployment"
+  type        = list(string)
+  default     = ["us-central1"]
+  validation {
+    condition = alltrue([
+      for region in var.subnet_regions : can(regex("^[a-z]+-[a-z]+[0-9]+$", region))
+    ])
+    error_message = "All regions must be valid GCP region names."
+  }
+}
+
+variable "subnet_name_prefix" {
+  description = "Prefix for subnet names"
+  type        = string
+  default     = "nonprod-subnet"
+}
+
+variable "subnet_ip_ranges" {
+  description = "Map of regions to primary subnet CIDR ranges"
+  type        = map(string)
+  default = {
+    "us-central1" = "10.51.0.0/16"
+  }
+  validation {
+    condition = alltrue([
+      for cidr in values(var.subnet_ip_ranges) : can(cidrhost(cidr, 0))
+    ])
+    error_message = "All subnet IP ranges must be valid IPv4 CIDR blocks."
+  }
+}
+
+variable "dns_zone_name" {
+  description = "Primary DNS zone name for non-production"
+  type        = string
+  default     = "nonprod-zone"
+}
+
+variable "dns_name" {
+  description = "Primary DNS domain name for non-production"
+  type        = string
+  default     = "nonprod.example.com."
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?\\.([a-z0-9]([a-z0-9-]*[a-z0-9])?)+\\.$", var.dns_name))
+    error_message = "DNS name must be a valid FQDN ending with a dot."
+  }
+}
+
+variable "interconnect_name_prefix" {
+  description = "Prefix for interconnect attachment names"
+  type        = string
+  default     = "nonprod"
+}
+
+variable "peering_network" {
+  description = "Self link of the network for peering connections"
+  type        = string
+  default     = ""
+}
+
+variable "labels" {
+  description = "Common labels to apply to all non-production resources"
+  type        = map(string)
+  default = {
+    "environment" = "non-production"
+    "managed-by"  = "terraform"
+    "cost-center" = "development"
+  }
+}
+
 # Project and organization variables
 variable "nonprod_shared_vpc_host_project_id" {
   description = "Project ID for the non-production shared VPC host project"
   type        = string
+  default     = ""
   validation {
-    condition     = can(regex("^[a-z][-a-z0-9]{4,28}[a-z0-9]$", var.nonprod_shared_vpc_host_project_id))
+    condition     = var.nonprod_shared_vpc_host_project_id == "" || can(regex("^[a-z][-a-z0-9]{4,28}[a-z0-9]$", var.nonprod_shared_vpc_host_project_id))
     error_message = "Project ID must be between 6 and 30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
   }
+}
+
+# Computed project ID - uses generic project_id if provided, otherwise falls back to environment-specific
+locals {
+  effective_project_id = var.project_id != "" ? var.project_id : var.nonprod_shared_vpc_host_project_id
 }
 
 variable "nonprod_dns_project_id" {
@@ -24,11 +123,16 @@ variable "nonprod_dns_project_id" {
 variable "nonprod_vpc_name" {
   description = "Name of the non-production VPC network"
   type        = string
-  default     = "nonprod-vpc"
+  default     = ""
   validation {
-    condition     = can(regex("^[a-z][-a-z0-9]*[a-z0-9]$", var.nonprod_vpc_name))
+    condition     = var.nonprod_vpc_name == "" || can(regex("^[a-z][-a-z0-9]*[a-z0-9]$", var.nonprod_vpc_name))
     error_message = "VPC name must start with a letter and contain only lowercase letters, numbers, and hyphens."
   }
+}
+
+# Computed VPC name - uses generic network_name if nonprod_vpc_name is not provided
+locals {
+  effective_vpc_name = var.nonprod_vpc_name != "" ? var.nonprod_vpc_name : var.network_name
 }
 
 variable "nonprod_vpc_cidr" {
@@ -827,9 +931,10 @@ variable "enable_nonprod_interconnect_monitoring" {
 variable "nonprod_common_labels" {
   description = "Common labels to apply to all non-production resources"
   type        = map(string)
-  default = {
-    "environment" = "non-production"
-    "managed-by"  = "terraform"
-    "cost-center" = "development"
-  }
+  default     = {}
+}
+
+# Computed labels - merges generic labels with nonprod-specific labels
+locals {
+  effective_labels = merge(var.labels, var.nonprod_common_labels)
 }

@@ -1,14 +1,116 @@
 # Production environment variables
 # Variables for production infrastructure with enhanced security and compliance requirements
 
+# Generic variables for standardized infrastructure patterns
+# These provide consistent naming across environments while maintaining backward compatibility
+
+variable "project_id" {
+  description = "Primary project ID for production infrastructure deployment"
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.project_id == "" || can(regex("^[a-z][-a-z0-9]{4,28}[a-z0-9]$", var.project_id))
+    error_message = "Project ID must be between 6 and 30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
+variable "network_name" {
+  description = "Primary network name for production VPC"
+  type        = string
+  default     = "prod-vpc"
+  validation {
+    condition     = can(regex("^[a-z][-a-z0-9]*[a-z0-9]$", var.network_name))
+    error_message = "Network name must start with a letter and contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
+variable "subnet_regions" {
+  description = "List of regions for subnet deployment"
+  type        = list(string)
+  default     = ["us-central1", "us-east1", "us-west1"]
+  validation {
+    condition = alltrue([
+      for region in var.subnet_regions : can(regex("^[a-z]+-[a-z]+[0-9]+$", region))
+    ])
+    error_message = "All regions must be valid GCP region names."
+  }
+}
+
+variable "subnet_name_prefix" {
+  description = "Prefix for subnet names"
+  type        = string
+  default     = "prod-subnet"
+}
+
+variable "subnet_ip_ranges" {
+  description = "Map of regions to primary subnet CIDR ranges"
+  type        = map(string)
+  default = {
+    "us-central1" = "10.1.0.0/16"
+    "us-east1"    = "10.2.0.0/16"
+    "us-west1"    = "10.3.0.0/16"
+  }
+  validation {
+    condition = alltrue([
+      for cidr in values(var.subnet_ip_ranges) : can(cidrhost(cidr, 0))
+    ])
+    error_message = "All subnet IP ranges must be valid IPv4 CIDR blocks."
+  }
+}
+
+variable "dns_zone_name" {
+  description = "Primary DNS zone name for production"
+  type        = string
+  default     = "prod-main-zone"
+}
+
+variable "dns_name" {
+  description = "Primary DNS domain name for production"
+  type        = string
+  default     = "example.com."
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?\\.([a-z0-9]([a-z0-9-]*[a-z0-9])?)+\\.$", var.dns_name))
+    error_message = "DNS name must be a valid FQDN ending with a dot."
+  }
+}
+
+variable "interconnect_name_prefix" {
+  description = "Prefix for interconnect attachment names"
+  type        = string
+  default     = "prod"
+}
+
+variable "peering_network" {
+  description = "Self link of the network for peering connections"
+  type        = string
+  default     = ""
+}
+
+variable "labels" {
+  description = "Common labels to apply to all production resources"
+  type        = map(string)
+  default = {
+    "environment" = "production"
+    "managed-by"  = "terraform"
+    "criticality" = "high"
+    "compliance"  = "required"
+  }
+}
+
 # Project and organization variables
 variable "prod_shared_vpc_host_project_id" {
   description = "Project ID for the production shared VPC host project"
   type        = string
+  default     = ""
   validation {
-    condition     = can(regex("^[a-z][-a-z0-9]{4,28}[a-z0-9]$", var.prod_shared_vpc_host_project_id))
+    condition     = var.prod_shared_vpc_host_project_id == "" || can(regex("^[a-z][-a-z0-9]{4,28}[a-z0-9]$", var.prod_shared_vpc_host_project_id))
     error_message = "Project ID must be between 6 and 30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
   }
+}
+
+# Computed project ID - uses generic project_id if provided, otherwise falls back to environment-specific
+locals {
+  effective_project_id = var.project_id != "" ? var.project_id : var.prod_shared_vpc_host_project_id
 }
 
 variable "prod_dns_project_id" {
@@ -24,11 +126,16 @@ variable "prod_dns_project_id" {
 variable "prod_vpc_name" {
   description = "Name of the production VPC network"
   type        = string
-  default     = "prod-vpc"
+  default     = ""
   validation {
-    condition     = can(regex("^[a-z][-a-z0-9]*[a-z0-9]$", var.prod_vpc_name))
+    condition     = var.prod_vpc_name == "" || can(regex("^[a-z][-a-z0-9]*[a-z0-9]$", var.prod_vpc_name))
     error_message = "VPC name must start with a letter and contain only lowercase letters, numbers, and hyphens."
   }
+}
+
+# Computed VPC name - uses generic network_name if prod_vpc_name is not provided
+locals {
+  effective_vpc_name = var.prod_vpc_name != "" ? var.prod_vpc_name : var.network_name
 }
 
 variable "prod_vpc_cidr" {
@@ -45,17 +152,18 @@ variable "prod_vpc_cidr" {
 variable "prod_subnet_cidrs" {
   description = "Map of regions to production subnet CIDR ranges"
   type        = map(string)
-  default = {
-    "us-central1" = "10.1.0.0/16"
-    "us-east1"    = "10.2.0.0/16"
-    "us-west1"    = "10.3.0.0/16"
-  }
+  default     = {}
   validation {
     condition = alltrue([
       for cidr in values(var.prod_subnet_cidrs) : can(cidrhost(cidr, 0))
     ])
     error_message = "All subnet CIDRs must be valid IPv4 CIDR blocks."
   }
+}
+
+# Computed subnet CIDRs - uses subnet_ip_ranges if prod_subnet_cidrs is empty
+locals {
+  effective_subnet_cidrs = length(var.prod_subnet_cidrs) > 0 ? var.prod_subnet_cidrs : var.subnet_ip_ranges
 }
 
 # Production secondary IP ranges for GKE
@@ -104,16 +212,27 @@ variable "prod_bgp_asn" {
 variable "prod_main_dns_zone_name" {
   description = "Name of the production main DNS zone"
   type        = string
-  default     = "prod-main-zone"
+  default     = ""
+}
+
+# Computed DNS zone name - uses dns_zone_name if prod_main_dns_zone_name is empty
+locals {
+  effective_dns_zone_name = var.prod_main_dns_zone_name != "" ? var.prod_main_dns_zone_name : var.dns_zone_name
 }
 
 variable "prod_main_domain_name" {
   description = "Production main domain name"
   type        = string
+  default     = ""
   validation {
-    condition     = can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?\\.([a-z0-9]([a-z0-9-]*[a-z0-9])?)+\\.$", var.prod_main_domain_name))
+    condition     = var.prod_main_domain_name == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?\\.([a-z0-9]([a-z0-9-]*[a-z0-9])?)+\\.$", var.prod_main_domain_name))
     error_message = "Domain name must be a valid FQDN ending with a dot."
   }
+}
+
+# Computed domain name - uses dns_name if prod_main_domain_name is empty
+locals {
+  effective_domain_name = var.prod_main_domain_name != "" ? var.prod_main_domain_name : var.dns_name
 }
 
 variable "prod_internal_dns_zone_name" {
@@ -794,10 +913,10 @@ variable "enable_prod_interconnect_slo" {
 variable "prod_common_labels" {
   description = "Common labels to apply to all production resources"
   type        = map(string)
-  default = {
-    "environment" = "production"
-    "managed-by"  = "terraform"
-    "criticality" = "high"
-    "compliance"  = "required"
-  }
+  default     = {}
+}
+
+# Computed labels - merges generic labels with prod-specific labels
+locals {
+  effective_labels = merge(var.labels, var.prod_common_labels)
 }
