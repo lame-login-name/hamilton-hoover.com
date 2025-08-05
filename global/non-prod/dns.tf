@@ -4,7 +4,7 @@
 
 # Development DNS zone
 resource "google_dns_managed_zone" "dev_zone" {
-  project     = var.nonprod_dns_project_id
+  project     = local.effective_project_id
   name        = var.dev_dns_zone_name
   dns_name    = var.dev_domain_name
   description = "Development DNS zone for ${var.dev_domain_name}"
@@ -32,7 +32,7 @@ resource "google_dns_managed_zone" "dev_zone" {
 
 # Staging DNS zone
 resource "google_dns_managed_zone" "staging_zone" {
-  project     = var.nonprod_dns_project_id
+  project     = local.effective_project_id
   name        = var.staging_dns_zone_name
   dns_name    = var.staging_domain_name
   description = "Staging DNS zone for ${var.staging_domain_name}"
@@ -59,7 +59,7 @@ resource "google_dns_managed_zone" "staging_zone" {
 
 # Test DNS zone for experimental features
 resource "google_dns_managed_zone" "test_zone" {
-  project     = var.nonprod_dns_project_id
+  project     = local.effective_project_id
   name        = var.test_dns_zone_name
   dns_name    = var.test_domain_name
   description = "Test DNS zone for experimental features"
@@ -70,7 +70,7 @@ resource "google_dns_managed_zone" "test_zone" {
 
 # Non-production private DNS zone for internal services
 resource "google_dns_managed_zone" "nonprod_internal_zone" {
-  project     = var.nonprod_dns_project_id
+  project     = local.effective_project_id
   name        = var.nonprod_internal_dns_zone_name
   dns_name    = var.nonprod_internal_domain_name
   description = "Non-production internal DNS zone for private services"
@@ -86,7 +86,7 @@ resource "google_dns_managed_zone" "nonprod_internal_zone" {
 
 # Development environment DNS records
 resource "google_dns_record_set" "dev_main_a_record" {
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = var.dev_domain_name
   type         = "A"
@@ -95,7 +95,7 @@ resource "google_dns_record_set" "dev_main_a_record" {
 }
 
 resource "google_dns_record_set" "dev_www_cname" {
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = "www.${var.dev_domain_name}"
   type         = "CNAME"
@@ -105,7 +105,7 @@ resource "google_dns_record_set" "dev_www_cname" {
 
 # Wildcard DNS for development flexibility
 resource "google_dns_record_set" "dev_wildcard_a_record" {
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = "*.${var.dev_domain_name}"
   type         = "A"
@@ -115,7 +115,7 @@ resource "google_dns_record_set" "dev_wildcard_a_record" {
 
 # Staging environment DNS records
 resource "google_dns_record_set" "staging_main_a_record" {
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.staging_zone.name
   name         = var.staging_domain_name
   type         = "A"
@@ -124,7 +124,7 @@ resource "google_dns_record_set" "staging_main_a_record" {
 }
 
 resource "google_dns_record_set" "staging_www_cname" {
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.staging_zone.name
   name         = "www.${var.staging_domain_name}"
   type         = "CNAME"
@@ -135,7 +135,7 @@ resource "google_dns_record_set" "staging_www_cname" {
 # API development DNS records
 resource "google_dns_record_set" "dev_api_a_record" {
   count        = var.enable_dev_api_dns ? 1 : 0
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = "api.${var.dev_domain_name}"
   type         = "A"
@@ -145,7 +145,7 @@ resource "google_dns_record_set" "dev_api_a_record" {
 
 resource "google_dns_record_set" "staging_api_a_record" {
   count        = var.enable_staging_api_dns ? 1 : 0
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.staging_zone.name
   name         = "api.${var.staging_domain_name}"
   type         = "A"
@@ -156,7 +156,7 @@ resource "google_dns_record_set" "staging_api_a_record" {
 # Development service discovery records
 resource "google_dns_record_set" "dev_internal_services" {
   for_each     = var.dev_internal_services
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.nonprod_internal_zone.name
   name         = "${each.key}.dev.${var.nonprod_internal_domain_name}"
   type         = "A"
@@ -167,7 +167,7 @@ resource "google_dns_record_set" "dev_internal_services" {
 # Staging service discovery records
 resource "google_dns_record_set" "staging_internal_services" {
   for_each     = var.staging_internal_services
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.nonprod_internal_zone.name
   name         = "${each.key}.staging.${var.nonprod_internal_domain_name}"
   type         = "A"
@@ -178,7 +178,7 @@ resource "google_dns_record_set" "staging_internal_services" {
 # Feature branch DNS records for dynamic environments
 resource "google_dns_record_set" "feature_branch_records" {
   for_each     = var.feature_branch_environments
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = "${each.key}.${var.dev_domain_name}"
   type         = "A"
@@ -189,7 +189,7 @@ resource "google_dns_record_set" "feature_branch_records" {
 # PR preview environments
 resource "google_dns_record_set" "pr_preview_records" {
   for_each     = var.pr_preview_environments
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = "pr-${each.key}.${var.dev_domain_name}"
   type         = "A"
@@ -200,7 +200,7 @@ resource "google_dns_record_set" "pr_preview_records" {
 # Database and service endpoints for development
 resource "google_dns_record_set" "dev_database_endpoints" {
   for_each     = var.dev_database_endpoints
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.nonprod_internal_zone.name
   name         = "${each.key}.db.dev.${var.nonprod_internal_domain_name}"
   type         = "A"
@@ -211,7 +211,7 @@ resource "google_dns_record_set" "dev_database_endpoints" {
 # Monitoring and logging endpoints
 resource "google_dns_record_set" "nonprod_monitoring_endpoints" {
   for_each     = var.nonprod_monitoring_endpoints
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.nonprod_internal_zone.name
   name         = "${each.key}.monitoring.${var.nonprod_internal_domain_name}"
   type         = "A"
@@ -221,7 +221,7 @@ resource "google_dns_record_set" "nonprod_monitoring_endpoints" {
 
 # Non-production DNS policies (more permissive)
 resource "google_dns_policy" "nonprod_internal_dns_policy" {
-  project                   = var.nonprod_dns_project_id
+  project                   = local.effective_project_id
   name                      = "nonprod-internal-dns-policy"
   enable_inbound_forwarding = true
   enable_logging            = var.enable_nonprod_dns_logging
@@ -246,7 +246,7 @@ resource "google_dns_policy" "nonprod_internal_dns_policy" {
 # Response policy for development testing
 resource "google_dns_response_policy" "nonprod_testing_policy" {
   count       = var.enable_nonprod_response_policy ? 1 : 0
-  project     = var.nonprod_dns_project_id
+  project     = local.effective_project_id
   name        = "nonprod-testing-response-policy"
   description = "Non-production DNS response policy for testing scenarios"
 
@@ -258,7 +258,7 @@ resource "google_dns_response_policy" "nonprod_testing_policy" {
 # Test domain overrides for development
 resource "google_dns_response_policy_rule" "nonprod_test_overrides" {
   for_each = var.enable_nonprod_response_policy ? var.nonprod_test_overrides : {}
-  project  = var.nonprod_dns_project_id
+  project  = local.effective_project_id
   
   response_policy = google_dns_response_policy.nonprod_testing_policy[0].name
   rule_name       = "nonprod-override-${replace(each.key, ".", "-")}"
@@ -277,7 +277,7 @@ resource "google_dns_response_policy_rule" "nonprod_test_overrides" {
 # Load testing DNS records
 resource "google_dns_record_set" "load_testing_endpoints" {
   for_each     = var.load_testing_endpoints
-  project      = var.nonprod_dns_project_id
+  project      = local.effective_project_id
   managed_zone = google_dns_managed_zone.test_zone.name
   name         = "${each.key}.${var.test_domain_name}"
   type         = "A"

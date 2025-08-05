@@ -4,13 +4,13 @@
 
 # Non-production shared VPC host project data source
 data "google_project" "nonprod_host_project" {
-  project_id = var.nonprod_shared_vpc_host_project_id
+  project_id = local.effective_project_id
 }
 
 # Non-production VPC network
 resource "google_compute_network" "nonprod_vpc" {
-  project                 = var.nonprod_shared_vpc_host_project_id
-  name                    = var.nonprod_vpc_name
+  project                 = local.effective_project_id
+  name                    = local.effective_vpc_name
   auto_create_subnetworks = false
   routing_mode            = "REGIONAL"  # Regional routing for cost optimization
   description             = "Non-production shared VPC network for staging and development"
@@ -21,23 +21,25 @@ resource "google_compute_network" "nonprod_vpc" {
 }
 
 # Staging subnet in primary region
-resource "google_compute_subnetwork" "staging_subnet_us_central1" {
-  project       = var.nonprod_shared_vpc_host_project_id
-  name          = "staging-subnet-us-central1"
+resource "google_compute_subnetwork" "staging_subnet" {
+  for_each = var.staging_subnet_cidrs
+  
+  project       = local.effective_project_id
+  name          = "staging-subnet-${each.key}"
   network       = google_compute_network.nonprod_vpc.id
-  ip_cidr_range = var.staging_subnet_cidrs["us-central1"]
-  region        = "us-central1"
-  description   = "Staging subnet in us-central1"
+  ip_cidr_range = each.value
+  region        = each.key
+  description   = "Staging subnet in ${each.key}"
 
   # Secondary ranges for GKE staging workloads
   secondary_ip_range {
-    range_name    = "staging-pods-us-central1"
-    ip_cidr_range = var.staging_pod_cidrs["us-central1"]
+    range_name    = "staging-pods-${each.key}"
+    ip_cidr_range = var.staging_pod_cidrs[each.key]
   }
 
   secondary_ip_range {
-    range_name    = "staging-services-us-central1"
-    ip_cidr_range = var.staging_service_cidrs["us-central1"]
+    range_name    = "staging-services-${each.key}"
+    ip_cidr_range = var.staging_service_cidrs[each.key]
   }
 
   # Reduced logging for cost optimization
@@ -51,22 +53,24 @@ resource "google_compute_subnetwork" "staging_subnet_us_central1" {
 }
 
 # Development subnet in primary region
-resource "google_compute_subnetwork" "dev_subnet_us_central1" {
-  project       = var.nonprod_shared_vpc_host_project_id
-  name          = "dev-subnet-us-central1"
+resource "google_compute_subnetwork" "dev_subnet" {
+  for_each = var.dev_subnet_cidrs
+  
+  project       = local.effective_project_id
+  name          = "dev-subnet-${each.key}"
   network       = google_compute_network.nonprod_vpc.id
-  ip_cidr_range = var.dev_subnet_cidrs["us-central1"]
-  region        = "us-central1"
-  description   = "Development subnet in us-central1"
+  ip_cidr_range = each.value
+  region        = each.key
+  description   = "Development subnet in ${each.key}"
 
   secondary_ip_range {
-    range_name    = "dev-pods-us-central1"
-    ip_cidr_range = var.dev_pod_cidrs["us-central1"]
+    range_name    = "dev-pods-${each.key}"
+    ip_cidr_range = var.dev_pod_cidrs[each.key]
   }
 
   secondary_ip_range {
-    range_name    = "dev-services-us-central1"
-    ip_cidr_range = var.dev_service_cidrs["us-central1"]
+    range_name    = "dev-services-${each.key}"
+    ip_cidr_range = var.dev_service_cidrs[each.key]
   }
 
   log_config {
@@ -79,22 +83,24 @@ resource "google_compute_subnetwork" "dev_subnet_us_central1" {
 }
 
 # Test environment subnet for isolated testing
-resource "google_compute_subnetwork" "test_subnet_us_central1" {
-  project       = var.nonprod_shared_vpc_host_project_id
-  name          = "test-subnet-us-central1"
+resource "google_compute_subnetwork" "test_subnet" {
+  for_each = var.test_subnet_cidrs
+  
+  project       = local.effective_project_id
+  name          = "test-subnet-${each.key}"
   network       = google_compute_network.nonprod_vpc.id
-  ip_cidr_range = var.test_subnet_cidrs["us-central1"]
-  region        = "us-central1"
-  description   = "Test environment subnet in us-central1"
+  ip_cidr_range = each.value
+  region        = each.key
+  description   = "Test environment subnet in ${each.key}"
 
   secondary_ip_range {
-    range_name    = "test-pods-us-central1"
-    ip_cidr_range = var.test_pod_cidrs["us-central1"]
+    range_name    = "test-pods-${each.key}"
+    ip_cidr_range = var.test_pod_cidrs[each.key]
   }
 
   secondary_ip_range {
-    range_name    = "test-services-us-central1"
-    ip_cidr_range = var.test_service_cidrs["us-central1"]
+    range_name    = "test-services-${each.key}"
+    ip_cidr_range = var.test_service_cidrs[each.key]
   }
 
   # Minimal logging for test environment
@@ -109,7 +115,7 @@ resource "google_compute_subnetwork" "test_subnet_us_central1" {
 
 # Non-production firewall rules - more permissive for development
 resource "google_compute_firewall" "nonprod_allow_internal" {
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "nonprod-allow-internal"
   network = google_compute_network.nonprod_vpc.id
 
@@ -136,7 +142,7 @@ resource "google_compute_firewall" "nonprod_allow_internal" {
 }
 
 resource "google_compute_firewall" "nonprod_allow_ssh_iap" {
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "nonprod-allow-ssh-iap"
   network = google_compute_network.nonprod_vpc.id
 
@@ -154,7 +160,7 @@ resource "google_compute_firewall" "nonprod_allow_ssh_iap" {
 
 # Allow RDP for Windows development machines
 resource "google_compute_firewall" "nonprod_allow_rdp_iap" {
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "nonprod-allow-rdp-iap"
   network = google_compute_network.nonprod_vpc.id
 
@@ -171,7 +177,7 @@ resource "google_compute_firewall" "nonprod_allow_rdp_iap" {
 }
 
 resource "google_compute_firewall" "nonprod_allow_health_checks" {
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "nonprod-allow-health-checks"
   network = google_compute_network.nonprod_vpc.id
 
@@ -192,7 +198,7 @@ resource "google_compute_firewall" "nonprod_allow_health_checks" {
 # Allow development traffic from specific IP ranges
 resource "google_compute_firewall" "nonprod_allow_dev_access" {
   count   = length(var.dev_access_ranges) > 0 ? 1 : 0
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "nonprod-allow-dev-access"
   network = google_compute_network.nonprod_vpc.id
 
@@ -209,10 +215,12 @@ resource "google_compute_firewall" "nonprod_allow_dev_access" {
 }
 
 # Non-production Cloud NAT with auto-allocated IPs for cost optimization
-resource "google_compute_router" "nonprod_router_us_central1" {
-  project = var.nonprod_shared_vpc_host_project_id
-  name    = "nonprod-router-us-central1"
-  region  = "us-central1"
+resource "google_compute_router" "nonprod_routers" {
+  for_each = toset(var.subnet_regions)
+  
+  project = local.effective_project_id
+  name    = "nonprod-router-${each.key}"
+  region  = each.key
   network = google_compute_network.nonprod_vpc.id
 
   bgp {
@@ -220,11 +228,13 @@ resource "google_compute_router" "nonprod_router_us_central1" {
   }
 }
 
-resource "google_compute_router_nat" "nonprod_nat_us_central1" {
-  project = var.nonprod_shared_vpc_host_project_id
-  name    = "nonprod-nat-us-central1"
-  router  = google_compute_router.nonprod_router_us_central1.name
-  region  = "us-central1"
+resource "google_compute_router_nat" "nonprod_nat" {
+  for_each = toset(var.subnet_regions)
+  
+  project = local.effective_project_id
+  name    = "nonprod-nat-${each.key}"
+  router  = google_compute_router.nonprod_routers[each.key].name
+  region  = each.key
 
   nat_ip_allocate_option             = "AUTO_ONLY"  # Auto-allocated for cost savings
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
@@ -239,14 +249,14 @@ resource "google_compute_router_nat" "nonprod_nat_us_central1" {
 
 # Enable required APIs for non-production
 resource "google_project_service" "nonprod_compute_api" {
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   service = "compute.googleapis.com"
 
   disable_dependent_services = true  # Allow cleanup in non-prod
 }
 
 resource "google_project_service" "nonprod_container_api" {
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   service = "container.googleapis.com"
 
   disable_dependent_services = true
@@ -255,14 +265,14 @@ resource "google_project_service" "nonprod_container_api" {
 # Shared VPC configuration for non-production
 resource "google_compute_shared_vpc_host_project" "nonprod_host" {
   count   = var.enable_shared_vpc ? 1 : 0
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
 }
 
 # Service projects attachment for non-production
 resource "google_compute_shared_vpc_service_project" "nonprod_service_projects" {
   for_each = var.enable_shared_vpc ? toset(var.nonprod_service_project_ids) : []
   
-  host_project    = var.nonprod_shared_vpc_host_project_id
+  host_project    = local.effective_project_id
   service_project = each.value
 
   depends_on = [
@@ -274,7 +284,7 @@ resource "google_compute_shared_vpc_service_project" "nonprod_service_projects" 
 resource "google_project_iam_member" "nonprod_shared_vpc_admin" {
   for_each = var.enable_shared_vpc ? toset(var.shared_vpc_admins) : []
   
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   role    = "roles/compute.xpnAdmin"
   member  = each.value
 }
@@ -292,19 +302,29 @@ output "nonprod_vpc_network_name" {
 
 output "nonprod_subnet_ids" {
   description = "Map of non-production subnet names to their IDs"
+  value = merge(
+    {
+      for k, v in google_compute_subnetwork.staging_subnet : "staging_${k}" => v.id
+    },
+    {
+      for k, v in google_compute_subnetwork.dev_subnet : "dev_${k}" => v.id
+    },
+    {
+      for k, v in google_compute_subnetwork.test_subnet : "test_${k}" => v.id
+    }
+  )
+}
+
+output "nonprod_router_ids" {
+  description = "Map of non-production router names to their IDs"
   value = {
-    staging_us_central1 = google_compute_subnetwork.staging_subnet_us_central1.id
-    dev_us_central1     = google_compute_subnetwork.dev_subnet_us_central1.id
-    test_us_central1    = google_compute_subnetwork.test_subnet_us_central1.id
+    for k, v in google_compute_router.nonprod_routers : k => v.id
   }
 }
 
-output "nonprod_router_id" {
-  description = "The ID of the non-production router"
-  value       = google_compute_router.nonprod_router_us_central1.id
-}
-
-output "nonprod_nat_gateway_id" {
-  description = "The ID of the non-production NAT gateway"
-  value       = google_compute_router_nat.nonprod_nat_us_central1.id
+output "nonprod_nat_gateway_ids" {
+  description = "Map of non-production NAT gateway names to their IDs"
+  value = {
+    for k, v in google_compute_router_nat.nonprod_nat : k => v.id
+  }
 }

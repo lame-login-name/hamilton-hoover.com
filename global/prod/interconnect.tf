@@ -5,8 +5,8 @@
 # Production Dedicated Interconnect attachment for primary connectivity
 resource "google_compute_interconnect_attachment" "prod_primary_attachment" {
   count        = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
-  name         = "prod-primary-interconnect-attachment"
+  project      = local.effective_project_id
+  name         = "${var.interconnect_name_prefix}-primary-interconnect-attachment"
   description  = "Production primary dedicated interconnect attachment"
   
   interconnect = var.prod_primary_interconnect_self_link
@@ -28,8 +28,8 @@ resource "google_compute_interconnect_attachment" "prod_primary_attachment" {
 # Production Dedicated Interconnect attachment for secondary/redundant connectivity
 resource "google_compute_interconnect_attachment" "prod_secondary_attachment" {
   count        = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
-  name         = "prod-secondary-interconnect-attachment"
+  project      = local.effective_project_id
+  name         = "${var.interconnect_name_prefix}-secondary-interconnect-attachment"
   description  = "Production secondary dedicated interconnect attachment for redundancy"
   
   interconnect = var.prod_secondary_interconnect_self_link
@@ -50,8 +50,8 @@ resource "google_compute_interconnect_attachment" "prod_secondary_attachment" {
 # Production Partner Interconnect attachment for cost-effective connectivity
 resource "google_compute_interconnect_attachment" "prod_partner_attachment" {
   count        = var.enable_prod_partner_interconnect ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
-  name         = "prod-partner-interconnect-attachment"
+  project      = local.effective_project_id
+  name         = "${var.interconnect_name_prefix}-partner-interconnect-attachment"
   description  = "Production partner interconnect attachment"
   
   router       = google_compute_router.prod_interconnect_router_partner[0].name
@@ -69,8 +69,8 @@ resource "google_compute_interconnect_attachment" "prod_partner_attachment" {
 # Production Cloud Routers for interconnect with BGP configuration
 resource "google_compute_router" "prod_interconnect_router_primary" {
   count   = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
-  name    = "prod-interconnect-router-primary"
+  project = local.effective_project_id
+  name    = "${var.interconnect_name_prefix}-interconnect-router-primary"
   region  = var.prod_primary_interconnect_region
   network = var.prod_vpc_network_id
 
@@ -92,8 +92,8 @@ resource "google_compute_router" "prod_interconnect_router_primary" {
 
 resource "google_compute_router" "prod_interconnect_router_secondary" {
   count   = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
-  name    = "prod-interconnect-router-secondary"
+  project = local.effective_project_id
+  name    = "${var.interconnect_name_prefix}-interconnect-router-secondary"
   region  = var.prod_secondary_interconnect_region
   network = var.prod_vpc_network_id
 
@@ -115,8 +115,8 @@ resource "google_compute_router" "prod_interconnect_router_secondary" {
 
 resource "google_compute_router" "prod_interconnect_router_partner" {
   count   = var.enable_prod_partner_interconnect ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
-  name    = "prod-interconnect-router-partner"
+  project = local.effective_project_id
+  name    = "${var.interconnect_name_prefix}-interconnect-router-partner"
   region  = var.prod_partner_interconnect_region
   network = var.prod_vpc_network_id
 
@@ -139,7 +139,7 @@ resource "google_compute_router" "prod_interconnect_router_partner" {
 # Primary BGP session interfaces
 resource "google_compute_router_interface" "prod_primary_interface_1" {
   count      = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "prod-primary-interface-1"
   router     = google_compute_router.prod_interconnect_router_primary[0].name
   region     = var.prod_primary_interconnect_region
@@ -151,7 +151,7 @@ resource "google_compute_router_interface" "prod_primary_interface_1" {
 
 resource "google_compute_router_interface" "prod_primary_interface_2" {
   count      = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "prod-primary-interface-2"
   router     = google_compute_router.prod_interconnect_router_primary[0].name
   region     = var.prod_primary_interconnect_region
@@ -164,7 +164,7 @@ resource "google_compute_router_interface" "prod_primary_interface_2" {
 # Secondary BGP session interfaces for redundancy
 resource "google_compute_router_interface" "prod_secondary_interface_1" {
   count      = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "prod-secondary-interface-1"
   router     = google_compute_router.prod_interconnect_router_secondary[0].name
   region     = var.prod_secondary_interconnect_region
@@ -176,7 +176,7 @@ resource "google_compute_router_interface" "prod_secondary_interface_1" {
 
 resource "google_compute_router_interface" "prod_secondary_interface_2" {
   count      = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "prod-secondary-interface-2"
   router     = google_compute_router.prod_interconnect_router_secondary[0].name
   region     = var.prod_secondary_interconnect_region
@@ -189,7 +189,7 @@ resource "google_compute_router_interface" "prod_secondary_interface_2" {
 # BGP peer sessions for primary interconnect
 resource "google_compute_router_peer" "prod_primary_peer_1" {
   count     = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-primary-peer-1"
   router    = google_compute_router.prod_interconnect_router_primary[0].name
   region    = var.prod_primary_interconnect_region
@@ -223,7 +223,7 @@ resource "google_compute_router_peer" "prod_primary_peer_1" {
 
 resource "google_compute_router_peer" "prod_primary_peer_2" {
   count     = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-primary-peer-2"
   router    = google_compute_router.prod_interconnect_router_primary[0].name
   region    = var.prod_primary_interconnect_region
@@ -257,7 +257,7 @@ resource "google_compute_router_peer" "prod_primary_peer_2" {
 # BGP peer sessions for secondary interconnect
 resource "google_compute_router_peer" "prod_secondary_peer_1" {
   count     = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-secondary-peer-1"
   router    = google_compute_router.prod_interconnect_router_secondary[0].name
   region    = var.prod_secondary_interconnect_region
@@ -290,7 +290,7 @@ resource "google_compute_router_peer" "prod_secondary_peer_1" {
 
 resource "google_compute_router_peer" "prod_secondary_peer_2" {
   count     = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-secondary-peer-2"
   router    = google_compute_router.prod_interconnect_router_secondary[0].name
   region    = var.prod_secondary_interconnect_region
@@ -324,7 +324,7 @@ resource "google_compute_router_peer" "prod_secondary_peer_2" {
 # Partner interconnect BGP configuration
 resource "google_compute_router_interface" "prod_partner_interface" {
   count      = var.enable_prod_partner_interconnect ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "prod-partner-interface"
   router     = google_compute_router.prod_interconnect_router_partner[0].name
   region     = var.prod_partner_interconnect_region
@@ -336,7 +336,7 @@ resource "google_compute_router_interface" "prod_partner_interface" {
 
 resource "google_compute_router_peer" "prod_partner_peer" {
   count     = var.enable_prod_partner_interconnect ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-partner-peer"
   router    = google_compute_router.prod_interconnect_router_partner[0].name
   region    = var.prod_partner_interconnect_region
@@ -360,7 +360,7 @@ resource "google_compute_router_peer" "prod_partner_peer" {
 # Production interconnect monitoring and alerting
 resource "google_monitoring_alert_policy" "prod_interconnect_bgp_session_down" {
   count        = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   display_name = "Production Interconnect BGP Session Down"
   combiner     = "OR"
   
@@ -389,7 +389,7 @@ resource "google_monitoring_alert_policy" "prod_interconnect_bgp_session_down" {
 
 resource "google_monitoring_alert_policy" "prod_interconnect_bandwidth_utilization" {
   count        = var.enable_prod_dedicated_interconnect ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   display_name = "Production Interconnect High Bandwidth Utilization"
   combiner     = "OR"
   
@@ -419,7 +419,7 @@ resource "google_monitoring_alert_policy" "prod_interconnect_bandwidth_utilizati
 # Production interconnect SLA monitoring
 resource "google_monitoring_slo" "prod_interconnect_availability" {
   count        = var.enable_prod_interconnect_slo ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   slo_id       = "prod-interconnect-availability"
   display_name = "Production Interconnect Availability SLO"
   

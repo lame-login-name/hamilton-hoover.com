@@ -5,8 +5,8 @@
 # Non-production Partner Interconnect attachment for development testing
 resource "google_compute_interconnect_attachment" "nonprod_test_attachment" {
   count        = var.enable_nonprod_test_interconnect ? 1 : 0
-  project      = var.nonprod_shared_vpc_host_project_id
-  name         = "nonprod-test-interconnect-attachment"
+  project      = local.effective_project_id
+  name         = "${var.interconnect_name_prefix}-test-interconnect-attachment"
   description  = "Non-production test interconnect attachment for development"
   
   router       = google_compute_router.nonprod_interconnect_router[0].name
@@ -24,8 +24,8 @@ resource "google_compute_interconnect_attachment" "nonprod_test_attachment" {
 # Development interconnect for testing hybrid cloud scenarios
 resource "google_compute_interconnect_attachment" "nonprod_dev_attachment" {
   count        = var.enable_nonprod_dev_interconnect ? 1 : 0
-  project      = var.nonprod_shared_vpc_host_project_id
-  name         = "nonprod-dev-interconnect-attachment"
+  project      = local.effective_project_id
+  name         = "${var.interconnect_name_prefix}-dev-interconnect-attachment"
   description  = "Non-production development interconnect attachment"
   
   router       = google_compute_router.nonprod_interconnect_router_dev[0].name
@@ -43,8 +43,8 @@ resource "google_compute_interconnect_attachment" "nonprod_dev_attachment" {
 # Non-production Cloud Routers for interconnect testing
 resource "google_compute_router" "nonprod_interconnect_router" {
   count   = var.enable_nonprod_test_interconnect ? 1 : 0
-  project = var.nonprod_shared_vpc_host_project_id
-  name    = "nonprod-interconnect-router"
+  project = local.effective_project_id
+  name    = "${var.interconnect_name_prefix}-interconnect-router"
   region  = var.nonprod_interconnect_region
   network = var.nonprod_vpc_network_id
 
@@ -58,8 +58,8 @@ resource "google_compute_router" "nonprod_interconnect_router" {
 
 resource "google_compute_router" "nonprod_interconnect_router_dev" {
   count   = var.enable_nonprod_dev_interconnect ? 1 : 0
-  project = var.nonprod_shared_vpc_host_project_id
-  name    = "nonprod-interconnect-router-dev"
+  project = local.effective_project_id
+  name    = "${var.interconnect_name_prefix}-interconnect-router-dev"
   region  = var.nonprod_dev_interconnect_region
   network = var.nonprod_vpc_network_id
 
@@ -74,7 +74,7 @@ resource "google_compute_router" "nonprod_interconnect_router_dev" {
 # BGP session interfaces for non-production testing
 resource "google_compute_router_interface" "nonprod_test_interface" {
   count      = var.enable_nonprod_test_interconnect ? 1 : 0
-  project    = var.nonprod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "nonprod-test-interface"
   router     = google_compute_router.nonprod_interconnect_router[0].name
   region     = var.nonprod_interconnect_region
@@ -86,7 +86,7 @@ resource "google_compute_router_interface" "nonprod_test_interface" {
 
 resource "google_compute_router_interface" "nonprod_dev_interface" {
   count      = var.enable_nonprod_dev_interconnect ? 1 : 0
-  project    = var.nonprod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "nonprod-dev-interface"
   router     = google_compute_router.nonprod_interconnect_router_dev[0].name
   region     = var.nonprod_dev_interconnect_region
@@ -99,7 +99,7 @@ resource "google_compute_router_interface" "nonprod_dev_interface" {
 # BGP peer sessions for non-production testing
 resource "google_compute_router_peer" "nonprod_test_peer" {
   count     = var.enable_nonprod_test_interconnect ? 1 : 0
-  project   = var.nonprod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "nonprod-test-peer"
   router    = google_compute_router.nonprod_interconnect_router[0].name
   region    = var.nonprod_interconnect_region
@@ -123,7 +123,7 @@ resource "google_compute_router_peer" "nonprod_test_peer" {
 
 resource "google_compute_router_peer" "nonprod_dev_peer" {
   count     = var.enable_nonprod_dev_interconnect ? 1 : 0
-  project   = var.nonprod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "nonprod-dev-peer"
   router    = google_compute_router.nonprod_interconnect_router_dev[0].name
   region    = var.nonprod_dev_interconnect_region
@@ -147,7 +147,7 @@ resource "google_compute_router_peer" "nonprod_dev_peer" {
 # Staging interconnect for pre-production validation
 resource "google_compute_interconnect_attachment" "staging_validation_attachment" {
   count        = var.enable_staging_interconnect ? 1 : 0
-  project      = var.nonprod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   name         = "staging-validation-interconnect-attachment"
   description  = "Staging interconnect attachment for pre-production validation"
   
@@ -165,7 +165,7 @@ resource "google_compute_interconnect_attachment" "staging_validation_attachment
 
 resource "google_compute_router" "staging_interconnect_router" {
   count   = var.enable_staging_interconnect ? 1 : 0
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "staging-interconnect-router"
   region  = var.staging_interconnect_region
   network = var.nonprod_vpc_network_id
@@ -188,7 +188,7 @@ resource "google_compute_router" "staging_interconnect_router" {
 
 resource "google_compute_router_interface" "staging_interface" {
   count      = var.enable_staging_interconnect ? 1 : 0
-  project    = var.nonprod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "staging-interface"
   router     = google_compute_router.staging_interconnect_router[0].name
   region     = var.staging_interconnect_region
@@ -200,7 +200,7 @@ resource "google_compute_router_interface" "staging_interface" {
 
 resource "google_compute_router_peer" "staging_peer" {
   count     = var.enable_staging_interconnect ? 1 : 0
-  project   = var.nonprod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "staging-peer"
   router    = google_compute_router.staging_interconnect_router[0].name
   region    = var.staging_interconnect_region
@@ -236,7 +236,7 @@ resource "google_compute_router_peer" "staging_peer" {
 resource "google_compute_interconnect_attachment" "temp_test_attachments" {
   for_each = var.temporary_test_attachments
   
-  project      = var.nonprod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   name         = "temp-test-${each.key}-interconnect-attachment"
   description  = "Temporary test interconnect attachment for ${each.key}"
   
@@ -255,7 +255,7 @@ resource "google_compute_interconnect_attachment" "temp_test_attachments" {
 # Load testing interconnect for performance validation
 resource "google_compute_interconnect_attachment" "load_test_attachment" {
   count        = var.enable_load_test_interconnect ? 1 : 0
-  project      = var.nonprod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   name         = "load-test-interconnect-attachment"
   description  = "Load testing interconnect attachment for performance validation"
   
@@ -274,7 +274,7 @@ resource "google_compute_interconnect_attachment" "load_test_attachment" {
 # Non-production interconnect monitoring (basic)
 resource "google_monitoring_alert_policy" "nonprod_interconnect_bgp_session_down" {
   count        = var.enable_nonprod_interconnect_monitoring ? 1 : 0
-  project      = var.nonprod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   display_name = "Non-Production Interconnect BGP Session Down"
   combiner     = "OR"
   
@@ -304,7 +304,7 @@ resource "google_monitoring_alert_policy" "nonprod_interconnect_bgp_session_down
 # Development interconnect health checks
 resource "google_compute_health_check" "nonprod_interconnect_health" {
   count   = var.enable_nonprod_test_interconnect ? 1 : 0
-  project = var.nonprod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "nonprod-interconnect-health-check"
   
   timeout_sec        = 5
@@ -323,7 +323,7 @@ resource "google_compute_health_check" "nonprod_interconnect_health" {
 resource "google_compute_interconnect_attachment" "experimental_attachments" {
   for_each = var.experimental_interconnect_configs
   
-  project      = var.nonprod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   name         = "experimental-${each.key}-interconnect-attachment"
   description  = "Experimental interconnect attachment for ${each.key} research"
   

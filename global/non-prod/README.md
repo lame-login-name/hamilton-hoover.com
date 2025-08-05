@@ -21,6 +21,165 @@ The non-production global infrastructure provides:
 - **Development-friendly security** controls
 - **Experimental feature support**
 
+## Variable Usage and Best Practices
+
+### Generic Variables for Non-Production
+This module uses the same dual-variable approach as production for consistency:
+
+#### Required Generic Variables
+```hcl
+# Primary infrastructure configuration
+project_id = "my-nonprod-project"       # Main project ID
+network_name = "nonprod-vpc"            # VPC network name
+subnet_regions = ["us-central1"]        # Cost-optimized single region
+
+# IP address configuration (cost-optimized)
+subnet_ip_ranges = {
+  "us-central1" = "10.51.0.0/16"
+}
+
+# DNS configuration
+dns_zone_name = "nonprod-zone"
+dns_name = "nonprod.example.com."
+
+# Resource naming
+interconnect_name_prefix = "nonprod"
+subnet_name_prefix = "nonprod-subnet"
+
+# Peering configuration
+peering_network = "projects/shared-services/global/networks/shared-vpc"
+
+# Resource labeling
+labels = {
+  "environment" = "non-production"
+  "managed-by"  = "terraform"
+  "cost-center" = "development"
+}
+```
+
+#### Environment-Specific Overrides
+```hcl
+# Non-production specific overrides
+nonprod_shared_vpc_host_project_id = "specific-nonprod-project"
+nonprod_vpc_name = "specific-nonprod-vpc"
+nonprod_common_labels = {
+  "team" = "development"
+  "auto-cleanup" = "enabled"
+}
+```
+
+### Development Workflow Variable Patterns
+
+#### Feature Branch Testing
+```hcl
+# Example: Feature branch specific configuration
+project_id = "feature-${var.branch_name}-project"
+network_name = "feature-${var.branch_name}-vpc"
+dns_name = "${var.branch_name}.dev.example.com."
+labels = {
+  "environment" = "feature-branch"
+  "branch" = var.branch_name
+  "auto-cleanup" = "true"
+}
+```
+
+#### Multi-Environment Testing
+```hcl
+# Variables for different non-prod environments
+locals {
+  env_configs = {
+    staging = {
+      project_id = "staging-project"
+      network_name = "staging-vpc"
+      dns_name = "staging.example.com."
+    }
+    dev = {
+      project_id = "dev-project"
+      network_name = "dev-vpc"
+      dns_name = "dev.example.com."
+    }
+    test = {
+      project_id = "test-project"
+      network_name = "test-vpc"
+      dns_name = "test.example.com."
+    }
+  }
+}
+```
+
+### Cost Optimization Through Variables
+
+#### Regional Optimization
+```hcl
+# Single region for cost savings
+subnet_regions = ["us-central1"]
+
+# Multiple regions for testing HA scenarios
+subnet_regions = ["us-central1", "us-east1"]  # Only when needed
+```
+
+#### Resource Sizing
+```hcl
+# Smaller interconnect bandwidth for cost savings
+nonprod_interconnect_bandwidth = "BPS_50M"   # vs "BPS_10G" in prod
+
+# Reduced NAT IP allocation
+# Uses AUTO_ONLY instead of reserved IPs
+```
+
+## Variable-Driven Change Management
+
+### Development Environment Changes
+```bash
+# 1. Quick iteration with generic variables
+terraform apply -var="project_id=new-dev-project" -var="dns_name=new-feature.dev.example.com."
+
+# 2. Test multiple configurations rapidly
+terraform workspace new feature-xyz
+terraform apply -var-file="feature-xyz.tfvars"
+
+# 3. Validate changes
+terraform plan -detailed-exitcode
+```
+
+### Staging Validation Workflow
+```bash
+# 1. Apply staging-like production variables
+terraform apply -var-file="staging-prod-like.tfvars"
+
+# 2. Run integration tests
+./scripts/test-connectivity.sh
+
+# 3. Performance testing
+./scripts/load-test.sh
+
+# 4. Promote to production after validation
+cd ../prod
+terraform apply -var-file="validated-config.tfvars"
+```
+
+### Change Management Process for Non-Production
+
+#### 1. Development Changes (Low Risk)
+- [ ] Create feature branch with variable changes
+- [ ] Deploy to development environment
+- [ ] Test functionality with new variables
+- [ ] Validate resource naming and organization
+- [ ] Create pull request
+
+#### 2. Staging Validation (Medium Risk)
+- [ ] Apply production-like variables to staging
+- [ ] Run integration test suite
+- [ ] Performance validation
+- [ ] Security testing with production variables
+- [ ] Document variable combinations that work
+
+#### 3. Production Readiness (High Risk)
+- [ ] Document all variable changes
+- [ ] Create production change request
+- [ ] Get production team approval
+- [ ] Schedule production deployment
+
 ## Files
 
 ### `networking.tf`

@@ -4,16 +4,16 @@
 
 # Data source for the production VPC network
 data "google_compute_network" "prod_vpc" {
-  project = var.prod_shared_vpc_host_project_id
-  name    = var.prod_vpc_name
+  project = local.effective_project_id
+  name    = local.effective_vpc_name
 }
 
 # Production peering connection to partner/vendor network
 resource "google_compute_network_peering" "prod_partner_peering" {
   count        = var.enable_prod_partner_peering ? 1 : 0
-  name         = "prod-partner-peering"
+  name         = "${var.interconnect_name_prefix}-partner-peering"
   network      = data.google_compute_network.prod_vpc.self_link
-  peer_network = var.prod_partner_network_self_link
+  peer_network = var.peering_network != "" ? var.peering_network : var.prod_partner_network_self_link
 
   auto_create_routes                = false  # Manual route control for production
   import_custom_routes              = var.prod_import_partner_routes
@@ -29,7 +29,7 @@ resource "google_compute_network_peering" "prod_partner_peering" {
 # Routes configuration for production partner peering
 resource "google_compute_network_peering_routes_config" "prod_partner_routes_config" {
   count   = var.enable_prod_partner_peering ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
+  project = local.effective_project_id
   peering = google_compute_network_peering.prod_partner_peering[0].name
   network = data.google_compute_network.prod_vpc.name
 
@@ -40,7 +40,7 @@ resource "google_compute_network_peering_routes_config" "prod_partner_routes_con
 # Production Cloud Router for dynamic routing with enhanced monitoring
 resource "google_compute_router" "prod_peering_router_us_central1" {
   count   = var.enable_prod_dynamic_routing ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "prod-peering-router-us-central1"
   region  = "us-central1"
   network = data.google_compute_network.prod_vpc.id
@@ -63,7 +63,7 @@ resource "google_compute_router" "prod_peering_router_us_central1" {
 # Multi-region router for production high availability
 resource "google_compute_router" "prod_peering_router_us_east1" {
   count   = var.enable_prod_dynamic_routing ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "prod-peering-router-us-east1"
   region  = "us-east1"
   network = data.google_compute_network.prod_vpc.id
@@ -86,7 +86,7 @@ resource "google_compute_router" "prod_peering_router_us_east1" {
 # Production HA VPN gateway for critical connectivity
 resource "google_compute_ha_vpn_gateway" "prod_vpn_gateway_us_central1" {
   count   = var.enable_prod_vpn_backup ? 1 : 0
-  project = var.prod_shared_vpc_host_project_id
+  project = local.effective_project_id
   name    = "prod-vpn-gateway-us-central1"
   region  = "us-central1"
   network = data.google_compute_network.prod_vpc.id
@@ -95,7 +95,7 @@ resource "google_compute_ha_vpn_gateway" "prod_vpn_gateway_us_central1" {
 # External VPN gateway (customer/partner side) for production
 resource "google_compute_external_vpn_gateway" "prod_onprem_gateway" {
   count           = var.enable_prod_vpn_backup ? 1 : 0
-  project         = var.prod_shared_vpc_host_project_id
+  project         = local.effective_project_id
   name            = "prod-onprem-vpn-gateway"
   redundancy_type = "FOUR_IPS_REDUNDANCY"
   description     = "Production external VPN gateway for on-premises connection"
@@ -112,7 +112,7 @@ resource "google_compute_external_vpn_gateway" "prod_onprem_gateway" {
 # Production VPN tunnels with enhanced security
 resource "google_compute_vpn_tunnel" "prod_onprem_tunnels" {
   count     = var.enable_prod_vpn_backup ? length(var.prod_onprem_vpn_interfaces) : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-onprem-tunnel-${count.index}"
   region    = "us-central1"
   
@@ -134,7 +134,7 @@ resource "google_compute_vpn_tunnel" "prod_onprem_tunnels" {
 # BGP sessions for production interconnect
 resource "google_compute_router_interface" "prod_interconnect_interface_us_central1" {
   count      = var.enable_prod_dynamic_routing && var.enable_prod_vpn_backup ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
+  project    = local.effective_project_id
   name       = "prod-interconnect-interface-us-central1"
   router     = google_compute_router.prod_peering_router_us_central1[0].name
   region     = "us-central1"
@@ -145,7 +145,7 @@ resource "google_compute_router_interface" "prod_interconnect_interface_us_centr
 
 resource "google_compute_router_peer" "prod_interconnect_peer_us_central1" {
   count     = var.enable_prod_dynamic_routing && var.enable_prod_vpn_backup ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
+  project   = local.effective_project_id
   name      = "prod-interconnect-peer-us-central1"
   router    = google_compute_router.prod_peering_router_us_central1[0].name
   region    = "us-central1"
@@ -170,7 +170,7 @@ resource "google_compute_router_peer" "prod_interconnect_peer_us_central1" {
 # Production Network Connectivity Center hub for centralized management
 resource "google_network_connectivity_hub" "prod_main_hub" {
   count       = var.enable_prod_connectivity_center ? 1 : 0
-  project     = var.prod_shared_vpc_host_project_id
+  project     = local.effective_project_id
   name        = "prod-main-connectivity-hub"
   description = "Production network connectivity hub for centralized management"
   
@@ -185,7 +185,7 @@ resource "google_network_connectivity_hub" "prod_main_hub" {
 resource "google_network_connectivity_spoke" "prod_regional_spokes" {
   for_each = var.enable_prod_connectivity_center ? var.prod_regional_spokes : {}
   
-  project     = var.prod_shared_vpc_host_project_id
+  project     = local.effective_project_id
   name        = "prod-spoke-${each.key}"
   location    = each.value.region
   description = "Production spoke for ${each.key} region"
@@ -207,7 +207,7 @@ resource "google_network_connectivity_spoke" "prod_regional_spokes" {
 # Production Private Service Connect endpoint for Google APIs
 resource "google_compute_global_address" "prod_psc_google_apis" {
   count        = var.enable_prod_private_google_access ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   name         = "prod-psc-google-apis"
   purpose      = "PRIVATE_SERVICE_CONNECT"
   network      = data.google_compute_network.prod_vpc.id
@@ -216,7 +216,7 @@ resource "google_compute_global_address" "prod_psc_google_apis" {
 
 resource "google_compute_global_forwarding_rule" "prod_psc_google_apis" {
   count                 = var.enable_prod_private_google_access ? 1 : 0
-  project               = var.prod_shared_vpc_host_project_id
+  project               = local.effective_project_id
   name                  = "prod-psc-google-apis"
   target                = "all-apis"
   network               = data.google_compute_network.prod_vpc.id
@@ -228,7 +228,7 @@ resource "google_compute_global_forwarding_rule" "prod_psc_google_apis" {
 resource "google_compute_service_attachment" "prod_partner_services" {
   for_each = var.prod_partner_service_attachments
   
-  project     = var.prod_shared_vpc_host_project_id
+  project     = local.effective_project_id
   name        = "prod-${each.key}-service-attachment"
   region      = each.value.region
   description = "Production service attachment for ${each.key}"
@@ -252,7 +252,7 @@ resource "google_compute_service_attachment" "prod_partner_services" {
 # Production Cross-region internal load balancer for high availability
 resource "google_compute_global_address" "prod_internal_lb_ip" {
   count        = var.enable_prod_cross_region_lb ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   name         = "prod-internal-lb-ip"
   address_type = "INTERNAL"
   purpose      = "SHARED_LOADBALANCER_VIP"
@@ -262,7 +262,7 @@ resource "google_compute_global_address" "prod_internal_lb_ip" {
 # Production network monitoring and alerting
 resource "google_monitoring_alert_policy" "prod_vpn_tunnel_state" {
   count        = var.enable_prod_vpn_backup ? 1 : 0
-  project      = var.prod_shared_vpc_host_project_id
+  project      = local.effective_project_id
   display_name = "Production VPN Tunnel State Alert"
   combiner     = "OR"
   

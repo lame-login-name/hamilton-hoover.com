@@ -21,6 +21,99 @@ The production global infrastructure provides:
 - **Enhanced security controls** and monitoring
 - **Comprehensive logging and alerting**
 
+## Variable Usage and Best Practices
+
+### Generic Variables
+This module uses a dual-variable approach for flexibility and consistency:
+
+#### Required Generic Variables
+```hcl
+# Primary infrastructure configuration
+project_id = "my-prod-project"           # Main project ID
+network_name = "prod-vpc"                # VPC network name
+subnet_regions = ["us-central1", "us-east1", "us-west1"]  # Deployment regions
+
+# IP address configuration
+subnet_ip_ranges = {
+  "us-central1" = "10.1.0.0/16"
+  "us-east1"    = "10.2.0.0/16"
+  "us-west1"    = "10.3.0.0/16"
+}
+
+# DNS configuration
+dns_zone_name = "prod-main-zone"
+dns_name = "example.com."
+
+# Resource naming
+interconnect_name_prefix = "prod"
+subnet_name_prefix = "prod-subnet"
+
+# Peering configuration
+peering_network = "projects/partner-project/global/networks/partner-vpc"
+
+# Resource labeling
+labels = {
+  "environment" = "production"
+  "managed-by"  = "terraform"
+  "criticality" = "high"
+  "compliance"  = "required"
+}
+```
+
+#### Environment-Specific Overrides
+For advanced configurations, environment-specific variables can override generic ones:
+```hcl
+# These take precedence over generic variables when provided
+prod_shared_vpc_host_project_id = "specific-prod-project"
+prod_vpc_name = "specific-prod-vpc-name"
+prod_main_dns_zone_name = "specific-dns-zone"
+prod_main_domain_name = "specific.domain.com."
+prod_common_labels = {
+  "team" = "platform"
+  "cost-center" = "engineering"
+}
+```
+
+### Variable Precedence and Computed Values
+The module uses locals to compute effective values:
+- **Generic variables** provide defaults and standardized naming
+- **Environment-specific variables** override when provided
+- **Backward compatibility** maintained with existing configurations
+
+Example computed logic:
+```hcl
+locals {
+  effective_project_id = var.project_id != "" ? var.project_id : var.prod_shared_vpc_host_project_id
+  effective_vpc_name = var.prod_vpc_name != "" ? var.prod_vpc_name : var.network_name
+  effective_labels = merge(var.labels, var.prod_common_labels)
+}
+```
+
+### Dynamic Resource Configuration
+Resources are created dynamically based on variable configuration:
+
+#### Multi-Region Subnets
+```hcl
+# Subnets created for each region in subnet_regions
+resource "google_compute_subnetwork" "prod_subnets" {
+  for_each = local.effective_subnet_cidrs
+  name     = "${var.subnet_name_prefix}-${each.key}"
+  region   = each.key
+  # ...
+}
+```
+
+#### Regional Infrastructure
+```hcl
+# NAT and routers created per region
+resource "google_compute_router" "prod_routers" {
+  for_each = toset(var.subnet_regions)
+  name     = "prod-router-${each.key}"
+  region   = each.key
+  # ...
+}
+```
+
 ## Files
 
 ### `networking.tf`
@@ -127,19 +220,24 @@ Production Connectivity
 
 ### 1. Planning Phase
 - [ ] Create detailed change request with impact assessment
+- [ ] Define variable changes using generic variable approach
+- [ ] Test variable combinations in staging environment
 - [ ] Get approval from infrastructure team lead
 - [ ] Schedule during approved maintenance window
 - [ ] Prepare rollback procedures
 
-### 2. Testing Phase
-- [ ] Test changes in staging environment first
-- [ ] Validate with non-production interconnect
+### 2. Variable Testing Phase
+- [ ] Test generic variables in staging environment first
+- [ ] Validate computed locals produce expected values
+- [ ] Ensure new regions/configurations work correctly
+- [ ] Test dynamic resource creation/deletion
 - [ ] Perform connectivity tests
 - [ ] Review monitoring and alerting
 
 ### 3. Deployment Phase
 - [ ] Deploy during maintenance window
 - [ ] Monitor all metrics during deployment
+- [ ] Validate that computed values are correct
 - [ ] Validate connectivity after changes
 - [ ] Update documentation
 
@@ -147,7 +245,44 @@ Production Connectivity
 - [ ] Confirm all services are operational
 - [ ] Check monitoring dashboards
 - [ ] Validate external connectivity
+- [ ] Verify variable precedence working correctly
 - [ ] Document any issues or learnings
+
+### Variable Change Management Best Practices
+
+#### Testing Variable Changes
+```bash
+# 1. Plan with new variables
+terraform plan -var="project_id=new-project" -var="network_name=new-vpc"
+
+# 2. Validate computed values
+terraform console
+> local.effective_project_id
+> local.effective_vpc_name
+
+# 3. Test in staging first
+cd ../non-prod
+terraform apply -var="project_id=staging-project"
+```
+
+#### Rollback Procedures
+```bash
+# 1. Revert to previous variable values
+git checkout HEAD~1 terraform.tfvars
+
+# 2. Apply previous configuration
+terraform apply
+
+# 3. Validate services restored
+# Run connectivity tests
+```
+
+#### Emergency Variable Changes
+For critical production issues requiring immediate variable changes:
+1. **Break Glass Process**: Emergency approval from senior team
+2. **Minimal Changes**: Change only required variables
+3. **Immediate Validation**: Test connectivity immediately
+4. **Post-Change Review**: Document changes and lessons learned
 
 ## Security Controls
 
