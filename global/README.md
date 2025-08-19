@@ -1,6 +1,68 @@
-# Global Infrastructure
+# Global Infrastructure (DEPRECATED)
 
-This directory contains Terraform configurations for global shared infrastructure components that are used across the entire organization. **As of this restructure, resources are now organized by environment to ensure proper blast radius isolation.**
+⚠️ **This directory has been deprecated and replaced by the new `infrastructure/` directory structure.**
+
+## Migration Notice
+
+This directory has been refactored to provide better separation between production and non-production environments. All functionality has been moved to:
+
+- **Production Infrastructure** → [`../infrastructure/prod/`](../infrastructure/prod/)
+- **Non-Production Infrastructure** → [`../infrastructure/non-prod/`](../infrastructure/non-prod/)
+
+## 🔄 What Changed
+
+The previous mixed structure in `global/` has been reorganized:
+
+### Before (Deprecated)
+```
+global/
+├── networking.tf        # Mixed prod/non-prod resources
+├── dns.tf              # Mixed environments
+├── prod/               # Production-specific files
+├── non-prod/           # Non-production-specific files
+└── variables.tf        # Mixed variables
+```
+
+### After (New Structure)
+```
+infrastructure/
+├── prod/               # All production resources
+│   ├── main.tf        # Terraform configuration
+│   ├── shared-networking.tf # Main VPC and prod networking
+│   ├── shared-dns.tf  # Production DNS
+│   └── ...
+└── non-prod/          # All non-production resources
+    ├── main.tf        # Terraform configuration
+    ├── shared-networking.tf # Non-prod subnets
+    ├── shared-dns.tf  # Dev/staging DNS
+    └── ...
+```
+
+## 🚀 Migration Steps
+
+If you were using the global infrastructure:
+
+1. **Update your references** from `global/` to `infrastructure/prod/` or `infrastructure/non-prod/`
+2. **Review the new structure** in [`../infrastructure/README.md`](../infrastructure/README.md)
+3. **Follow the new deployment procedures** for your environment
+
+## 📋 Benefits of New Structure
+
+- **Clear blast radius separation** between production and non-production
+- **Environment-specific security controls** and compliance
+- **Independent deployment** capabilities
+- **Improved cost management** with environment-appropriate configurations
+
+## 📖 Documentation
+
+For detailed information about the new structure:
+- [Infrastructure Overview](../infrastructure/README.md)
+- [Production Environment](../infrastructure/prod/README.md)
+- [Non-Production Environment](../infrastructure/non-prod/README.md)
+
+---
+
+**Please migrate to the new infrastructure structure. This directory will be removed in a future release.**
 
 ## 🏗️ NEW ARCHITECTURE: ENVIRONMENT-BASED SEPARATION
 

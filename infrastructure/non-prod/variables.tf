@@ -20,6 +20,26 @@ variable "nonprod_dns_project_id" {
   }
 }
 
+variable "nonprod_default_region" {
+  description = "Default region for non-production resources"
+  type        = string
+  default     = "us-central1"
+  validation {
+    condition = contains([
+      "us-central1", "us-east1", "us-west1", "us-west2",
+      "europe-west1", "europe-west2", "europe-west3",
+      "asia-east1", "asia-northeast1", "asia-southeast1"
+    ], var.nonprod_default_region)
+    error_message = "Region must be a valid Google Cloud region."
+  }
+}
+
+variable "nonprod_shared_vpc_name" {
+  description = "Name of the shared VPC network (typically managed in production)"
+  type        = string
+  default     = "main-vpc"
+}
+
 # Non-production VPC configuration
 variable "nonprod_vpc_name" {
   description = "Name of the non-production VPC network"

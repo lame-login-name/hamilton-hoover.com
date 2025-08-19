@@ -34,6 +34,18 @@ variable "prod_default_region" {
   }
 }
 
+variable "prod_main_vpc_network_id" {
+  description = "ID of the main VPC network for production"
+  type        = string
+  default     = ""
+}
+
+variable "prod_api_gateway_dns_target" {
+  description = "DNS target for API gateway CNAME record"
+  type        = string
+  default     = ""
+}
+
 # Production VPC configuration
 variable "prod_vpc_name" {
   description = "Name of the production VPC network"
