@@ -22,23 +22,41 @@ hamilton-hoover.com/
 │   ├── billing.tf         # Billing account management
 │   ├── variables.tf       # Organization variables
 │   └── README.md          # Organization documentation
-├── global/                 # Global shared infrastructure
-│   ├── networking.tf      # Shared VPC and networking
-│   ├── dns.tf            # DNS zones and management
-│   ├── peering.tf        # VPC peering and connectivity
-│   ├── variables.tf      # Global variables
-│   └── README.md         # Global infrastructure docs
-├── projects/              # Project-level configurations
-│   ├── sample-project/    # Complete project template
-│   │   ├── main.tf       # Core project resources
-│   │   ├── iam.tf        # Project IAM configuration
-│   │   ├── network.tf    # Project networking
-│   │   ├── variables.tf  # Project variables
-│   │   └── README.md     # Project documentation
-│   └── README.md         # Projects overview
-├── modules/               # Reusable Terraform modules
-│   └── README.md         # Modules documentation
-└── README.md             # This file
+├── infrastructure/         # Environment-separated infrastructure
+│   ├── prod/              # Production environment infrastructure
+│   │   ├── main.tf        # Core Terraform configuration
+│   │   ├── variables.tf   # Production-specific variables
+│   │   ├── shared-networking.tf # Main VPC and production networking
+│   │   ├── shared-dns.tf  # Production DNS zones
+│   │   ├── networking.tf  # Production networking resources
+│   │   ├── dns.tf        # Production DNS management
+│   │   ├── peering.tf    # Production connectivity
+│   │   ├── interconnect.tf # Production interconnect
+│   │   └── README.md     # Production documentation
+│   ├── non-prod/         # Non-production environments
+│   │   ├── main.tf       # Core Terraform configuration
+│   │   ├── variables.tf  # Non-prod variables
+│   │   ├── shared-networking.tf # Non-prod subnets
+│   │   ├── shared-dns.tf # Development/staging DNS
+│   │   ├── networking.tf # Non-prod networking
+│   │   ├── dns.tf       # Non-prod DNS management
+│   │   ├── peering.tf   # Non-prod connectivity
+│   │   ├── interconnect.tf # Test interconnect
+│   │   └── README.md    # Development workflows
+│   └── README.md         # Infrastructure overview
+├── global/                # Legacy global infrastructure (deprecated)
+│   └── README.md         # Migration guide to infrastructure/
+├── projects/             # Project-level configurations
+│   ├── sample-project/   # Complete project template
+│   │   ├── main.tf      # Core project resources
+│   │   ├── iam.tf       # Project IAM configuration
+│   │   ├── network.tf   # Project networking
+│   │   ├── variables.tf # Project variables
+│   │   └── README.md    # Project documentation
+│   └── README.md        # Projects overview
+├── modules/              # Reusable Terraform modules
+│   └── README.md        # Modules documentation
+└── README.md            # This file
 ```
 
 ## Architecture Principles
@@ -104,17 +122,27 @@ hamilton-hoover.com/
    terraform apply
    ```
 
-3. **Deploy Global Infrastructure**:
+3. **Deploy Production Infrastructure**:
    ```bash
-   cd ../global/
+   cd infrastructure/prod/
    cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your global settings
+   # Edit terraform.tfvars with your production settings
    terraform init
    terraform plan
    terraform apply
    ```
 
-4. **Create Your First Project**:
+4. **Deploy Non-Production Infrastructure** (optional):
+   ```bash
+   cd ../non-prod/
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your non-production settings
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+5. **Create Your First Project**:
    ```bash
    cd ../projects/
    cp -r sample-project my-first-project
