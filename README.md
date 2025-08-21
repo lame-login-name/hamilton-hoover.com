@@ -1,6 +1,6 @@
 # Hamilton Hoover GCP Organization Management
 
-This repository contains the complete Terraform infrastructure-as-code configuration for managing our Google Cloud Platform (GCP) organization, implementing best practices for security, governance, and scalability.
+This repository contains the complete Terraform infrastructure-as-code configuration for managing our Google Cloud Platform (GCP) organization, implementing best practices for security, governance, and scalability across environments.
 
 ## Overview
 
@@ -15,49 +15,65 @@ This repository provides a comprehensive, hierarchical approach to GCP organizat
 
 ```
 hamilton-hoover.com/
-├── org/                    # Organization-level configurations
-│   ├── org-policies.tf     # Organization policies and constraints
-│   ├── org-iam.tf         # Organization-level IAM bindings
-│   ├── folders.tf         # Folder structure management
-│   ├── billing.tf         # Billing account management
-│   ├── variables.tf       # Organization variables
-│   └── README.md          # Organization documentation
-├── infrastructure/         # Environment-separated infrastructure
-│   ├── prod/              # Production environment infrastructure
-│   │   ├── main.tf        # Core Terraform configuration
-│   │   ├── variables.tf   # Production-specific variables
-│   │   ├── shared-networking.tf # Main VPC and production networking
-│   │   ├── shared-dns.tf  # Production DNS zones
-│   │   ├── networking.tf  # Production networking resources
-│   │   ├── dns.tf        # Production DNS management
-│   │   ├── peering.tf    # Production connectivity
-│   │   ├── interconnect.tf # Production interconnect
-│   │   └── README.md     # Production documentation
-│   ├── non-prod/         # Non-production environments
-│   │   ├── main.tf       # Core Terraform configuration
-│   │   ├── variables.tf  # Non-prod variables
-│   │   ├── shared-networking.tf # Non-prod subnets
-│   │   ├── shared-dns.tf # Development/staging DNS
-│   │   ├── networking.tf # Non-prod networking
-│   │   ├── dns.tf       # Non-prod DNS management
-│   │   ├── peering.tf   # Non-prod connectivity
-│   │   ├── interconnect.tf # Test interconnect
-│   │   └── README.md    # Development workflows
-│   └── README.md         # Infrastructure overview
-├── global/                # Legacy global infrastructure (deprecated)
-│   └── README.md         # Migration guide to infrastructure/
-├── projects/             # Project-level configurations
-│   ├── sample-project/   # Complete project template
-│   │   ├── main.tf      # Core project resources
-│   │   ├── iam.tf       # Project IAM configuration
-│   │   ├── network.tf   # Project networking
-│   │   ├── variables.tf # Project variables
-│   │   └── README.md    # Project documentation
-│   └── README.md        # Projects overview
-├── modules/              # Reusable Terraform modules
-│   └── README.md        # Modules documentation
-└── README.md            # This file
+├── org/                       # Organization-level configurations
+│   ├── org-policies.tf        # Organization policies and constraints
+│   ├── org-iam.tf             # Organization-level IAM bindings
+│   ├── folders.tf             # Folder structure management
+│   ├── billing.tf             # Billing account management
+│   ├── variables.tf           # Organization variables
+│   └── README.md              # Organization documentation
+├── infrastructure/            # Environment-separated shared infrastructure
+│   ├── prod/                  # Production shared infra (networking, DNS, etc.)
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── shared-networking.tf
+│   │   ├── shared-dns.tf
+│   │   ├── networking.tf
+│   │   ├── dns.tf
+│   │   ├── peering.tf
+│   │   ├── interconnect.tf
+│   │   └── README.md
+│   ├── non-prod/              # Non-production shared infra
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── shared-networking.tf
+│   │   ├── shared-dns.tf
+│   │   ├── networking.tf
+│   │   ├── dns.tf
+│   │   ├── peering.tf
+│   │   ├── interconnect.tf
+│   │   └── README.md
+│   └── README.md              # Infrastructure overview
+├── global/                    # Legacy global infrastructure (deprecated)
+│   └── README.md              # Migration guide to infrastructure/
+├── projects/                  # Project-level configurations by environment
+│   ├── prod/                  # Production projects
+│   │   └── (project folders)  # e.g. payment-api/, frontend-app/
+│   ├── non-prod/              # Non-production (dev/staging/sandbox) projects
+│   │   └── (project folders)  # e.g. payment-api-dev/, frontend-app-staging/
+│   ├── samples/               # Sample / reference project templates
+│   │   └── sample-project/    # Complete project template (moved from previous root)
+│   │       ├── main.tf        # Core project resources
+│   │       ├── iam.tf         # Project IAM configuration
+│   │       ├── network.tf     # Project networking
+│   │       ├── variables.tf   # Project variables
+│   │       └── README.md      # Project documentation
+│   └── README.md              # Projects overview & conventions
+├── modules/                   # Reusable Terraform modules
+│   └── README.md
+└── README.md                  # This file
 ```
+
+### Project Layout Rationale
+
+Separating projects by environment under `projects/prod/` and `projects/non-prod/`:
+
+- Reinforces environment isolation
+- Simplifies targeting with Terraform (e.g., plan/apply within a specific environment subtree)
+- Supports clearer access controls (e.g., prod approvers vs non-prod contributors)
+- Enables consistent naming and tagging conventions
+
+`projects/samples/` contains reusable templates and example patterns without being mistaken for active deployments.
 
 ## Architecture Principles
 
@@ -92,12 +108,10 @@ hamilton-hoover.com/
    - Organization Admin permissions
    - Billing account access
    - Domain verification completed
-
 2. **Tools Required**:
    - Terraform >= 1.0
    - Google Cloud SDK
    - Git
-
 3. **Authentication**:
    ```bash
    gcloud auth application-default login
@@ -111,7 +125,6 @@ hamilton-hoover.com/
    git clone https://github.com/lame-login-name/hamilton-hoover.com.git
    cd hamilton-hoover.com
    ```
-
 2. **Configure Organization Layer**:
    ```bash
    cd org/
@@ -121,33 +134,38 @@ hamilton-hoover.com/
    terraform plan
    terraform apply
    ```
-
-3. **Deploy Production Infrastructure**:
+3. **Deploy Shared Production Infrastructure**:
    ```bash
-   cd infrastructure/prod/
+   cd ../infrastructure/prod/
    cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your production settings
    terraform init
    terraform plan
    terraform apply
    ```
-
-4. **Deploy Non-Production Infrastructure** (optional):
+4. **Deploy Shared Non-Production Infrastructure** (optional):
    ```bash
    cd ../non-prod/
    cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your non-production settings
    terraform init
    terraform plan
    terraform apply
    ```
-
-5. **Create Your First Project**:
+5. **Create Your First Project (Production Example)**:
    ```bash
-   cd ../projects/
-   cp -r sample-project my-first-project
-   cd my-first-project/
-   # Edit terraform.tfvars with your project settings
+   cd ../../../projects/prod/
+   cp -r ../samples/sample-project payment-api
+   cd payment-api
+   # Edit terraform.tfvars (or create if using *.auto.tfvars)
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+6. **Create a Non-Production Project (Staging Example)**:
+   ```bash
+   cd ../../non-prod/
+   cp -r ../samples/sample-project payment-api-staging
+   cd payment-api-staging
+   # Adjust variables (environment = "staging")
    terraform init
    terraform plan
    terraform apply
@@ -159,9 +177,9 @@ hamilton-hoover.com/
 
 Key settings in `org/terraform.tfvars`:
 ```hcl
-organization_id    = "123456789012"
-billing_account_id = "ABCDEF-GHIJKL-MNOPQR"
-organization_domain = "hamilton-hoover.com"
+organization_id      = "123456789012"
+billing_account_id   = "ABCDEF-GHIJKL-MNOPQR"
+organization_domain  = "hamilton-hoover.com"
 
 org_admin_members = [
   "user:admin@hamilton-hoover.com",
@@ -175,50 +193,55 @@ allowed_regions = [
 ]
 ```
 
-### Global Infrastructure Configuration
+### Shared Infrastructure Configuration
 
-Key settings in `global/terraform.tfvars`:
-```hcl
-shared_vpc_host_project_id = "shared-vpc-host-proj"
-dns_project_id = "dns-management-proj"
-main_domain_name = "hamilton-hoover.com."
-
-main_domain_ip_addresses = [
-  "34.102.136.180"
-]
-```
+(unchanged – see `infrastructure/{prod,non-prod}`)
 
 ### Project Configuration
 
-Key settings in `projects/*/terraform.tfvars`:
-```hcl
-project_name = "My Application"
-project_id_prefix = "my-app"
-environment = "production"
-team_name = "platform-team"
+Each project now lives under its environment subtree:
 
-folder_id = "folders/987654321098"  # From org output
-subnet_name = "prod-subnet-us-central1"  # From global output
+```
+projects/
+  prod/payment-api/
+  non-prod/payment-api-staging/
+```
+
+Key settings in `projects/*/*/terraform.tfvars` (example):
+```hcl
+project_name       = "Payment API"
+project_id_prefix  = "payment-api"
+environment        = "production"         # production | staging | development | sandbox
+team_name          = "platform-team"
+
+folder_id          = "folders/987654321098"          # From org output
+subnet_name        = "prod-subnet-us-central1"       # From infrastructure outputs
+```
+
+For non-prod variant:
+```hcl
+environment = "staging"
+subnet_name = "nonprod-subnet-us-central1"
 ```
 
 ## Usage Patterns
 
 ### Creating a New Project
 
-1. **Copy Template**:
+1. Choose environment:
+   - Production: `projects/prod/`
+   - Non-production: `projects/non-prod/`
+2. Copy from sample:
    ```bash
-   cp -r projects/sample-project projects/my-new-project
-   cd projects/my-new-project
+   cd projects/prod
+   cp -r ../samples/sample-project inventory-service
    ```
-
-2. **Customize Configuration**:
+3. Customize:
    ```bash
-   # Edit variables and configuration
+   cd inventory-service
    vim terraform.tfvars
-   vim main.tf  # If needed
    ```
-
-3. **Deploy**:
+4. Deploy:
    ```bash
    terraform init
    terraform plan
@@ -229,21 +252,24 @@ subnet_name = "prod-subnet-us-central1"  # From global output
 
 ```hcl
 module "web_application" {
-  source = "../../modules/web-app"
-  
-  project_id = var.project_id
-  app_name   = "frontend"
+  source      = "../../../modules/web-app"
+  project_id  = var.project_id
+  app_name    = "frontend"
   environment = var.environment
 }
 ```
 
+(Adjust relative path since depth changed inside environment subfolder.)
+
 ### Managing Environments
 
-Projects are organized by environment folders:
-- **Production**: `folders/production`
-- **Staging**: `folders/staging`
-- **Development**: `folders/development`
-- **Sandbox**: `folders/sandbox`
+Projects are organized physically in git and logically in GCP:
+
+- Production: `projects/prod/*`
+- Staging / Dev / Sandbox: `projects/non-prod/*` (distinguished via `environment` variable)
+- Reference Samples: `projects/samples/*`
+
+You may optionally further subdivide `non-prod` into `staging/`, `development/`, `sandbox/` later if needed.
 
 ## Security Features
 
@@ -316,12 +342,10 @@ Projects are organized by environment folders:
    - Check organization admin rights
    - Verify billing account access
    - Confirm API enablement
-
 2. **Project Creation Failures**:
    - Verify folder permissions
    - Check project ID uniqueness
    - Confirm billing account attachment
-
 3. **Network Issues**:
    - Check shared VPC permissions
    - Verify subnet assignments
@@ -334,6 +358,17 @@ Projects are organized by environment folders:
 3. Check GCP console for errors
 4. Consult team documentation
 5. Contact platform team
+
+## Migration Notes (Projects Directory Restructure)
+
+If you previously had projects directly under `projects/`:
+1. Identify each project's environment.
+2. Move directories into `projects/prod/` or `projects/non-prod/`.
+3. Update any relative module source paths (depth increased by one).
+4. Re-run `terraform init -reconfigure` in each moved project to refresh backend paths if using local relative backends.
+5. Validate state:
+   - If using remote backend (e.g., GCS), ensure `backend` block does not rely on relative paths. Typically no state move is required.
+   - If local state: move the `.tfstate` files along with the directory.
 
 ## Contributing
 
@@ -359,5 +394,5 @@ This repository is proprietary to Hamilton Hoover organization. See LICENSE file
 ---
 
 **Maintained by**: Platform Engineering Team  
-**Last Updated**: 2024  
-**Version**: 1.0.0
+**Last Updated**: 2025  
+**Version**: 1.1.0
