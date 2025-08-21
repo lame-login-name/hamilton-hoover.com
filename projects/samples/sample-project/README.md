@@ -288,8 +288,8 @@ resource "google_storage_bucket" "custom_bucket" {
 ## Dependencies
 
 This project template depends on:
-- Organization structure (`../../org/`)
-- Global infrastructure (`../../global/`)
+- Organization structure (`../../../org/`)
+- Global infrastructure (`../../../global/`)
 - Shared VPC host project
 - Billing account setup
 
