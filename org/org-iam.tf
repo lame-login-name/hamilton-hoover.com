@@ -1,92 +1,54 @@
-# Organization-level IAM bindings
-# This file manages IAM roles and permissions at the organization level
+# Organization-level IAM.
+#
+# Uses google_organization_iam_member (additive) rather than
+# google_organization_iam_binding (authoritative) at the org root.
+# Authoritative bindings at this level would wipe any Google-managed
+# service account roles that exist outside of Terraform state.
+#
+# Phase 2 will add a dedicated Terraform service account per repo and
+# grant it the narrowest roles it needs. The human admin bindings here
+# are intentionally broad — this is the break-glass identity.
 
-# Organization administrators
-resource "google_organization_iam_binding" "org_admins" {
-  org_id = var.organization_id
-  role   = "roles/resourcemanager.organizationAdmin"
-
-  members = var.org_admin_members
+locals {
+  org_admins = toset(var.org_admin_members)
 }
 
-# Billing administrators
-resource "google_organization_iam_binding" "billing_admins" {
-  org_id = var.organization_id
-  role   = "roles/billing.admin"
-
-  members = var.billing_admin_members
+# Full org admin — needed to manage folders, policies, and IAM itself.
+resource "google_organization_iam_member" "org_admin" {
+  for_each = local.org_admins
+  org_id   = var.organization_id
+  role     = "roles/resourcemanager.organizationAdmin"
+  member   = each.value
 }
 
-# Security administrators
-resource "google_organization_iam_binding" "security_admins" {
-  org_id = var.organization_id
-  role   = "roles/iam.securityAdmin"
-
-  members = var.security_admin_members
+# Folder creator — required for this config to create the folder hierarchy.
+resource "google_organization_iam_member" "folder_creator" {
+  for_each = local.org_admins
+  org_id   = var.organization_id
+  role     = "roles/resourcemanager.folderCreator"
+  member   = each.value
 }
 
-# Network administrators
-resource "google_organization_iam_binding" "network_admins" {
-  org_id = var.organization_id
-  role   = "roles/compute.networkAdmin"
-
-  members = var.network_admin_members
+# Project creator — needed when provisioning projects in later phases.
+resource "google_organization_iam_member" "project_creator" {
+  for_each = local.org_admins
+  org_id   = var.organization_id
+  role     = "roles/resourcemanager.projectCreator"
+  member   = each.value
 }
 
-# Folder creators (for department leads)
-resource "google_organization_iam_binding" "folder_creators" {
-  org_id = var.organization_id
-  role   = "roles/resourcemanager.folderCreator"
-
-  members = var.folder_creator_members
+# Org policy admin — required to set and update org policies.
+resource "google_organization_iam_member" "org_policy_admin" {
+  for_each = local.org_admins
+  org_id   = var.organization_id
+  role     = "roles/orgpolicy.policyAdmin"
+  member   = each.value
 }
 
-# Project creators (for team leads)
-resource "google_organization_iam_binding" "project_creators" {
-  org_id = var.organization_id
-  role   = "roles/resourcemanager.projectCreator"
-
-  members = var.project_creator_members
-}
-
-# Organization viewers (for auditing)
-resource "google_organization_iam_binding" "org_viewers" {
-  org_id = var.organization_id
-  role   = "roles/browser"
-
-  members = var.org_viewer_members
-}
-
-# Cloud Asset Inventory viewers (for compliance)
-resource "google_organization_iam_binding" "asset_viewers" {
-  org_id = var.organization_id
-  role   = "roles/cloudasset.viewer"
-
-  members = var.asset_viewer_members
-}
-
-# Custom role for limited project management
-resource "google_organization_iam_custom_role" "limited_project_manager" {
-  role_id     = "limitedProjectManager"
-  org_id      = var.organization_id
-  title       = "Limited Project Manager"
-  description = "Can manage projects with restrictions"
-
-  permissions = [
-    "resourcemanager.projects.get",
-    "resourcemanager.projects.list",
-    "resourcemanager.projects.update",
-    "compute.instances.list",
-    "compute.instances.get",
-    "storage.buckets.list",
-    "storage.buckets.get",
-  ]
-}
-
-# Bind the custom role
-resource "google_organization_iam_binding" "limited_project_managers" {
-  org_id = var.organization_id
-  role   = google_organization_iam_custom_role.limited_project_manager.name
-
-  members = var.limited_project_manager_members
+# Billing admin at the org level — allows attaching billing accounts to projects.
+resource "google_organization_iam_member" "billing_admin" {
+  for_each = local.org_admins
+  org_id   = var.organization_id
+  role     = "roles/billing.admin"
+  member   = each.value
 }

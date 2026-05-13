@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and fill in any values marked TODO.
+# terraform.tfvars is gitignored — never commit it.
+
+organization_id      = "459863125464"
+organization_domain  = "hamilton-hoover.com"
+billing_account_id   = "01CE05-D8FE66-79E225"
+bootstrap_project_id = "massive-runway-432502-n1"
+
+# The human identity with org admin rights.
+# Add a Terraform service account here in Phase 2 once WIF is set up.
+org_admin_members = [
+  "user:hamilton.hoover@gmail.com",
+]
+
+# Restrict all resource creation to US regions.
+# "in:us-locations" is a GCP location group covering all US regions.
+# Add "in:us-locations" alongside specific overrides if needed.
+allowed_regions = ["in:us-locations"]
+
+# Personal platform — keep spend caps conservative.
+# Alerts fire at 50%, 80%, and 100% of each cap.
+org_budget_amount     = 50  # USD/month, all billing account spend
+prod_budget_amount    = 30  # USD/month, prod folder only
+nonprod_budget_amount = 20  # USD/month, nonprod + sandbox folders
