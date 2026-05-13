@@ -1,76 +1,96 @@
-# Organization Policies for GCP Organization
-# This file defines organization-level constraints and policies
+# Organization policies using OrgPolicy v2 API (google_org_policy_policy).
+# All policies are set at the org root and inherited by every folder and project.
+# To override a policy for a specific folder (e.g. relax external IP in sandbox),
+# create a separate google_org_policy_policy targeting that folder's parent path.
 
-# Require OS Login for all compute instances
-resource "google_organization_policy" "os_login" {
-  org_id     = var.organization_id
-  constraint = "compute.requireOsLogin"
+# Prevent the default VPC from being auto-created in every new project.
+# This forces intentional network design — no accidental open networks.
+resource "google_org_policy_policy" "skip_default_network" {
+  name   = "organizations/${var.organization_id}/policies/compute.skipDefaultNetworkCreation"
+  parent = "organizations/${var.organization_id}"
 
-  boolean_policy {
-    enforced = true
-  }
-}
-
-# Restrict VM external IP access
-resource "google_organization_policy" "vm_external_ip_access" {
-  org_id     = var.organization_id
-  constraint = "compute.vmExternalIpAccess"
-
-  list_policy {
-    deny {
-      all = true
+  spec {
+    rules {
+      enforce = "TRUE"
     }
   }
 }
 
-# Restrict public IP access on Cloud SQL instances
-resource "google_organization_policy" "sql_restrict_public_ip" {
-  org_id     = var.organization_id
-  constraint = "sql.restrictPublicIp"
+# Require OS Login on all Compute Engine VMs.
+# Ties SSH access to IAM identities instead of project-level SSH keys.
+resource "google_org_policy_policy" "require_os_login" {
+  name   = "organizations/${var.organization_id}/policies/compute.requireOsLogin"
+  parent = "organizations/${var.organization_id}"
 
-  boolean_policy {
-    enforced = true
+  spec {
+    rules {
+      enforce = "TRUE"
+    }
   }
 }
 
-# Require HTTPS load balancers
-resource "google_organization_policy" "load_balancer_https_only" {
-  org_id     = var.organization_id
-  constraint = "compute.requireSslLoadBalancerTargetHttpsProxy"
+# Block external (public) IPs on all VM instances.
+# Traffic must flow through Cloud NAT or load balancers instead.
+resource "google_org_policy_policy" "vm_no_external_ip" {
+  name   = "organizations/${var.organization_id}/policies/compute.vmExternalIpAccess"
+  parent = "organizations/${var.organization_id}"
 
-  boolean_policy {
-    enforced = true
+  spec {
+    rules {
+      deny_all = "TRUE"
+    }
   }
 }
 
-# Restrict service account key creation
-resource "google_organization_policy" "restrict_service_account_keys" {
-  org_id     = var.organization_id
-  constraint = "iam.disableServiceAccountKeyCreation"
+# Block public IPs on Cloud SQL instances.
+resource "google_org_policy_policy" "sql_no_public_ip" {
+  name   = "organizations/${var.organization_id}/policies/sql.restrictPublicIp"
+  parent = "organizations/${var.organization_id}"
 
-  boolean_policy {
-    enforced = true
+  spec {
+    rules {
+      enforce = "TRUE"
+    }
   }
 }
 
-# Require encryption in transit
-resource "google_organization_policy" "encryption_in_transit" {
-  org_id     = var.organization_id
-  constraint = "compute.requireTlsssPolicy"
+# Disable service account key file creation across the org.
+# Long-lived key files are a credential leak risk. Use WIF instead.
+resource "google_org_policy_policy" "no_sa_key_creation" {
+  name   = "organizations/${var.organization_id}/policies/iam.disableServiceAccountKeyCreation"
+  parent = "organizations/${var.organization_id}"
 
-  boolean_policy {
-    enforced = true
+  spec {
+    rules {
+      enforce = "TRUE"
+    }
   }
 }
 
-# Restrict resource locations to specific regions
-resource "google_organization_policy" "resource_locations" {
-  org_id     = var.organization_id
-  constraint = "gcp.resourceLocations"
+# Enforce uniform bucket-level access on all GCS buckets.
+# Disables per-object ACLs and ensures IAM is the single access control plane.
+resource "google_org_policy_policy" "gcs_uniform_access" {
+  name   = "organizations/${var.organization_id}/policies/storage.uniformBucketLevelAccess"
+  parent = "organizations/${var.organization_id}"
 
-  list_policy {
-    allow {
-      values = var.allowed_regions
+  spec {
+    rules {
+      enforce = "TRUE"
+    }
+  }
+}
+
+# Restrict resource creation to allowed regions.
+# Default: US locations only. Override var.allowed_regions to expand.
+resource "google_org_policy_policy" "resource_locations" {
+  name   = "organizations/${var.organization_id}/policies/gcp.resourceLocations"
+  parent = "organizations/${var.organization_id}"
+
+  spec {
+    rules {
+      values {
+        allowed_values = var.allowed_regions
+      }
     }
   }
 }

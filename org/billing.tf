@@ -1,25 +1,39 @@
-# Billing account management and configurations
-# This file manages billing accounts and budget alerts
+# Billing budgets.
+#
+# Three budgets:
+#   1. org-total   — all spend on this billing account (catch-all)
+#   2. prod        — scoped to the prod folder
+#   3. nonprod     — scoped to the nonprod + sandbox folders combined
+#
+# Alert emails go to billing account admins by default
+# (disable_default_iam_recipients = false). No monitoring notification
+# channels are wired up yet — add them in Phase 4 when a monitoring
+# project exists.
+#
+# Budget amounts are intentionally small for a personal platform.
+# Adjust via var.org_budget_amount / var.prod_budget_amount /
+# var.nonprod_budget_amount in terraform.tfvars.
 
-# Primary billing account data source
 data "google_billing_account" "primary" {
   billing_account = var.billing_account_id
   open            = true
 }
 
-# Budget for the entire organization
-resource "google_billing_budget" "organization_budget" {
-  billing_account = data.google_billing_account.primary.id
-  display_name    = "Organization Total Budget"
+# --- Org-level catch-all budget ---
+
+resource "google_billing_budget" "org_total" {
+  billing_account = var.billing_account_id
+  display_name    = "hh-org-total"
 
   budget_filter {
-    projects = ["projects/${var.organization_id}"]
+    credit_types_treatment = "INCLUDE_ALL_CREDITS"
+    # No projects/folders filter = all spend on this billing account.
   }
 
   amount {
     specified_amount {
-      currency_code = var.budget_currency
-      units         = var.organization_budget_amount
+      currency_code = "USD"
+      units         = tostring(var.org_budget_amount)
     }
   }
 
@@ -27,41 +41,35 @@ resource "google_billing_budget" "organization_budget" {
     threshold_percent = 0.5
     spend_basis       = "CURRENT_SPEND"
   }
-
   threshold_rules {
-    threshold_percent = 0.75
+    threshold_percent = 0.8
     spend_basis       = "CURRENT_SPEND"
   }
-
-  threshold_rules {
-    threshold_percent = 0.9
-    spend_basis       = "CURRENT_SPEND"
-  }
-
   threshold_rules {
     threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
   }
 
   all_updates_rule {
-    monitoring_notification_channels = var.budget_notification_channels
-    disable_default_iam_recipients    = false
+    disable_default_iam_recipients = false
   }
 }
 
-# Production environment budget
-resource "google_billing_budget" "production_budget" {
-  billing_account = data.google_billing_account.primary.id
-  display_name    = "Production Environment Budget"
+# --- Production folder budget ---
+
+resource "google_billing_budget" "prod" {
+  billing_account = var.billing_account_id
+  display_name    = "hh-prod-folder"
 
   budget_filter {
-    projects = var.production_project_ids
+    credit_types_treatment = "INCLUDE_ALL_CREDITS"
+    folders                = ["folders/${google_folder.prod.folder_id}"]
   }
 
   amount {
     specified_amount {
-      currency_code = var.budget_currency
-      units         = var.production_budget_amount
+      currency_code = "USD"
+      units         = tostring(var.prod_budget_amount)
     }
   }
 
@@ -69,90 +77,52 @@ resource "google_billing_budget" "production_budget" {
     threshold_percent = 0.8
     spend_basis       = "CURRENT_SPEND"
   }
-
   threshold_rules {
-    threshold_percent = 0.95
+    threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
   }
 
   all_updates_rule {
-    monitoring_notification_channels = var.budget_notification_channels
-    disable_default_iam_recipients    = false
+    disable_default_iam_recipients = false
   }
 }
 
-# Development/Sandbox budget
-resource "google_billing_budget" "development_budget" {
-  billing_account = data.google_billing_account.primary.id
-  display_name    = "Development & Sandbox Budget"
+# --- Nonprod + sandbox budget ---
+
+resource "google_billing_budget" "nonprod" {
+  billing_account = var.billing_account_id
+  display_name    = "hh-nonprod-sandbox"
 
   budget_filter {
-    projects = var.development_project_ids
+    credit_types_treatment = "INCLUDE_ALL_CREDITS"
+    folders = [
+      "folders/${google_folder.nonprod.folder_id}",
+      "folders/${google_folder.sandbox.folder_id}",
+    ]
   }
 
   amount {
     specified_amount {
-      currency_code = var.budget_currency
-      units         = var.development_budget_amount
+      currency_code = "USD"
+      units         = tostring(var.nonprod_budget_amount)
     }
   }
 
   threshold_rules {
-    threshold_percent = 0.7
+    threshold_percent = 0.8
     spend_basis       = "CURRENT_SPEND"
   }
-
   threshold_rules {
-    threshold_percent = 0.9
+    threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
   }
 
   all_updates_rule {
-    monitoring_notification_channels = var.budget_notification_channels
-    disable_default_iam_recipients    = false
+    disable_default_iam_recipients = false
   }
 }
 
-# Billing IAM
-resource "google_billing_account_iam_binding" "billing_users" {
-  billing_account_id = data.google_billing_account.primary.id
-  role               = "roles/billing.user"
-
-  members = var.billing_user_members
-}
-
-resource "google_billing_account_iam_binding" "billing_viewers" {
-  billing_account_id = data.google_billing_account.primary.id
-  role               = "roles/billing.viewer"
-
-  members = var.billing_viewer_members
-}
-
-# Export billing data to BigQuery
-resource "google_bigquery_dataset" "billing_export" {
-  dataset_id  = "billing_export"
-  project     = var.billing_export_project_id
-  description = "Dataset for billing export data"
-  location    = var.billing_export_location
-
-  access {
-    role          = "OWNER"
-    user_by_email = var.billing_export_owner_email
-  }
-
-  access {
-    role   = "READER"
-    domain = var.organization_domain
-  }
-}
-
-# Outputs
 output "billing_account_id" {
-  description = "The billing account ID"
+  description = "Billing account ID (for reference in downstream configs)"
   value       = data.google_billing_account.primary.id
-}
-
-output "billing_dataset_id" {
-  description = "The BigQuery dataset ID for billing exports"
-  value       = google_bigquery_dataset.billing_export.dataset_id
 }
