@@ -5,9 +5,10 @@
 #   2. prod        — scoped to the prod folder
 #   3. nonprod     — scoped to the nonprod + sandbox folders combined
 #
-# Alert emails are sent to billing account admins automatically by GCP
-# without any notification channel config. Monitoring channels or Pub/Sub
-# topics can be wired in Phase 4 when a monitoring project exists.
+# Alert emails go to billing account admins by default
+# (disable_default_iam_recipients = false). No monitoring notification
+# channels are wired up yet — add them in Phase 4 when a monitoring
+# project exists.
 #
 # Budget amounts are intentionally small for a personal platform.
 # Adjust via var.org_budget_amount / var.prod_budget_amount /
@@ -26,7 +27,7 @@ resource "google_billing_budget" "org_total" {
 
   budget_filter {
     credit_types_treatment = "INCLUDE_ALL_CREDITS"
-    # No resource_ancestors filter = all spend on this billing account.
+    # No projects/folders filter = all spend on this billing account.
   }
 
   amount {
@@ -48,6 +49,10 @@ resource "google_billing_budget" "org_total" {
     threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
   }
+
+  all_updates_rule {
+    disable_default_iam_recipients = false
+  }
 }
 
 # --- Production folder budget ---
@@ -58,7 +63,7 @@ resource "google_billing_budget" "prod" {
 
   budget_filter {
     credit_types_treatment = "INCLUDE_ALL_CREDITS"
-    resource_ancestors     = ["folders/${google_folder.prod.folder_id}"]
+    folders                = ["folders/${google_folder.prod.folder_id}"]
   }
 
   amount {
@@ -76,6 +81,10 @@ resource "google_billing_budget" "prod" {
     threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
   }
+
+  all_updates_rule {
+    disable_default_iam_recipients = false
+  }
 }
 
 # --- Nonprod + sandbox budget ---
@@ -86,7 +95,7 @@ resource "google_billing_budget" "nonprod" {
 
   budget_filter {
     credit_types_treatment = "INCLUDE_ALL_CREDITS"
-    resource_ancestors = [
+    folders = [
       "folders/${google_folder.nonprod.folder_id}",
       "folders/${google_folder.sandbox.folder_id}",
     ]
@@ -106,6 +115,10 @@ resource "google_billing_budget" "nonprod" {
   threshold_rules {
     threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
+  }
+
+  all_updates_rule {
+    disable_default_iam_recipients = false
   }
 }
 
