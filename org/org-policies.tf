@@ -80,6 +80,20 @@ resource "google_org_policy_policy" "gcs_uniform_access" {
   }
 }
 
+# Enforce public access prevention on all GCS buckets.
+# Blocks any IAM grant that would make bucket objects publicly accessible,
+# even if uniform bucket-level access is somehow bypassed.
+resource "google_org_policy_policy" "gcs_public_access_prevention" {
+  name   = "organizations/${var.organization_id}/policies/storage.publicAccessPrevention"
+  parent = "organizations/${var.organization_id}"
+
+  spec {
+    rules {
+      enforce = "TRUE"
+    }
+  }
+}
+
 # Restrict resource creation to allowed regions.
 # Default: US locations only. Override var.allowed_regions to expand.
 resource "google_org_policy_policy" "resource_locations" {
