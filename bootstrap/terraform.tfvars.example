@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars — gitignored, never commit.
+
+bootstrap_project_id = "massive-runway-432502-n1"
+organization_id      = "459863125464"
+github_org           = "lame-login-name"
+github_repo_org      = "hamilton-hoover.com"
+tf_state_bucket      = "hh-org-tfstate"

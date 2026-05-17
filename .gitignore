@@ -10,6 +10,9 @@ terraform.tfstate.backup
 *.tfvars
 *.tfvars.json
 
+# Exception: committed CI tfvars files contain no secrets and must be tracked.
+!*.auto.tfvars
+
 # Override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
