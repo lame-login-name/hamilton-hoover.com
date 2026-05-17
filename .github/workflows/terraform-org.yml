@@ -1,0 +1,156 @@
+name: Terraform — org
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "org/**"
+      - ".github/workflows/terraform-org.yml"
+  push:
+    branches: [main]
+    paths:
+      - "org/**"
+      - ".github/workflows/terraform-org.yml"
+
+# id-token: write  — required to obtain the OIDC token for WIF
+# pull-requests: write — required to post the plan as a PR comment
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  TF_ROOT: org
+
+jobs:
+  fmt:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_ROOT }}
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.TF_ORG_SA }}
+
+      - name: terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    needs: [fmt, validate]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.TF_ORG_SA }}
+
+      - name: terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: terraform plan
+        id: plan
+        # Capture stdout+stderr together; tee writes to file and passes through.
+        # PIPESTATUS[0] ensures the step fails on terraform error, not tee error.
+        run: |
+          terraform plan -no-color -out=tfplan 2>&1 | tee /tmp/plan.txt
+          exit ${PIPESTATUS[0]}
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync('/tmp/plan.txt', 'utf8');
+            const plan = raw.length > 60000
+              ? raw.slice(0, 60000) + '\n\n[...output truncated — see Actions log for full plan]'
+              : raw;
+            const outcome = '${{ steps.plan.outcome }}';
+            const icon = outcome === 'success' ? '✅' : '❌';
+            const body = [
+              `#### ${icon} Terraform Plan \`${outcome}\``,
+              ``,
+              `<details><summary>Show Plan</summary>`,
+              ``,
+              '```hcl',
+              plan,
+              '```',
+              `</details>`,
+              ``,
+              `*Triggered by @${{ github.actor }} on \`${{ github.event_name }}\`*`,
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+  apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    needs: [fmt, validate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # 'apply' environment requires manual approval in GitHub repo settings.
+    # This is the gate between code review and actual GCP changes.
+    environment: apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.TF_ORG_SA }}
+
+      - name: terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
+
+      # Re-plan from current state rather than using the PR plan artifact.
+      # Prevents applying a stale plan if state changed between PR and merge.
+      - name: terraform plan
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}
