@@ -80,6 +80,23 @@ resource "google_org_policy_policy" "gcs_uniform_access" {
   }
 }
 
+# Restrict IAM policy members to identities within this Cloud Identity directory.
+# Prevents granting roles to external users (e.g. random Gmail accounts) on any
+# resource in the org. Scoped to the customer ID rather than a domain string so
+# it covers all domains in the Cloud Identity tenant automatically.
+resource "google_org_policy_policy" "allowed_policy_member_domains" {
+  name   = "organizations/${var.organization_id}/policies/iam.allowedPolicyMemberDomains"
+  parent = "organizations/${var.organization_id}"
+
+  spec {
+    rules {
+      values {
+        allowed_values = ["principalSet://goog/cloudIdentityCustomerId/${var.cloud_identity_customer_id}"]
+      }
+    }
+  }
+}
+
 # Enforce public access prevention on all GCS buckets.
 # Blocks any IAM grant that would make bucket objects publicly accessible,
 # even if uniform bucket-level access is somehow bypassed.

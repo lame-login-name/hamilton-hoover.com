@@ -23,6 +23,11 @@ variable "org_admin_members" {
   type        = list(string)
 }
 
+variable "cloud_identity_customer_id" {
+  description = "Cloud Identity customer ID (format: C + alphanumeric, e.g. C0abc123x). Used to scope iam.allowedPolicyMemberDomains to this org's directory."
+  type        = string
+}
+
 variable "allowed_regions" {
   description = "Location values permitted by the gcp.resourceLocations org policy. Accepts region names or GCP location groups (e.g. 'in:us-locations')."
   type        = list(string)
