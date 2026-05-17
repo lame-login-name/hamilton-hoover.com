@@ -17,6 +17,8 @@ org_admin_members = [
   "user:hamilton.hoover@gmail.com",
 ]
 
+cloud_identity_customer_id = "C013m3fwu"
+
 allowed_regions       = ["in:us-locations"]
 org_budget_amount     = 50
 prod_budget_amount    = 30

@@ -12,6 +12,10 @@ org_admin_members = [
   "user:hamilton.hoover@gmail.com",
 ]
 
+# Cloud Identity customer ID — run:
+#   gcloud organizations describe <ORG_ID> --format='value(owner.directoryCustomerId)'
+cloud_identity_customer_id = "TODO"
+
 # Restrict all resource creation to US regions.
 # "in:us-locations" is a GCP location group covering all US regions.
 # Add "in:us-locations" alongside specific overrides if needed.
