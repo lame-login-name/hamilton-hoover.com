@@ -8,6 +8,10 @@ terraform {
     }
   }
 
+  # NOTE: Terraform backend config cannot reference variables (language limitation).
+  # This bucket name MUST match var.tf_state_bucket — both refer to the same bucket
+  # but serve different purposes (state storage here vs IAM grant in wif.tf).
+  # If you ever rename the bucket, update both this block and terraform.tfvars.
   backend "gcs" {
     bucket = "hh-org-tfstate"
     prefix = "bootstrap"

@@ -31,7 +31,10 @@ resource "google_iam_workload_identity_pool" "github" {
   display_name              = "GitHub Actions"
   description               = "WIF pool for GitHub Actions OIDC authentication."
 
-  depends_on = [google_project_service.iamcredentials]
+  depends_on = [
+    google_project_service.iamcredentials,
+    google_project_service.sts,
+  ]
 }
 
 # --- GitHub OIDC provider ---
@@ -56,6 +59,11 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
+
+  depends_on = [
+    google_project_service.iamcredentials,
+    google_project_service.sts,
+  ]
 }
 
 # --- Terraform service account: org root ---
@@ -72,7 +80,7 @@ resource "google_service_account" "tf_org" {
 resource "google_service_account_iam_member" "tf_org_wif" {
   service_account_id = google_service_account.tf_org.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_org}/${var.github_repo_org}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_org}/${var.github_repo}"
 }
 
 # Grant the SA objectAdmin on the state bucket so it can read/write state.

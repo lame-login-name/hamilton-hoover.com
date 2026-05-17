@@ -3,5 +3,5 @@
 bootstrap_project_id = "massive-runway-432502-n1"
 organization_id      = "459863125464"
 github_org           = "lame-login-name"
-github_repo_org      = "hamilton-hoover.com"
+github_repo          = "hamilton-hoover.com"
 tf_state_bucket      = "hh-org-tfstate"

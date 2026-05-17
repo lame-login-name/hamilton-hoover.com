@@ -13,8 +13,8 @@ variable "github_org" {
   type        = string
 }
 
-variable "github_repo_org" {
-  description = "GitHub repo name for the org/ root (used to scope the WIF principal binding)."
+variable "github_repo" {
+  description = "GitHub repository name (e.g. hamilton-hoover.com). Used to scope the WIF principal binding to this repo only."
   type        = string
 }
 
