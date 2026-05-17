@@ -9,8 +9,12 @@ bootstrap_project_id = "massive-runway-432502-n1"
 # The human identity with org admin rights.
 # Add a Terraform service account here in Phase 2 once WIF is set up.
 org_admin_members = [
-  "user:PERSONAL_EMAIL_REDACTED",
+  "user:admin@your-domain.com",
 ]
+
+# Cloud Identity customer ID — run:
+#   gcloud organizations describe <ORG_ID> --format='value(owner.directoryCustomerId)'
+cloud_identity_customer_id = "TODO"
 
 # Restrict all resource creation to US regions.
 # "in:us-locations" is a GCP location group covering all US regions.

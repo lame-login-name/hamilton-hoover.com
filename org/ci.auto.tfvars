@@ -14,8 +14,10 @@ bootstrap_project_id = "massive-runway-432502-n1"
 # managed in bootstrap/wif.tf — keeping ownership in one place avoids two
 # Terraform states fighting over the same IAM bindings.
 org_admin_members = [
-  "user:PERSONAL_EMAIL_REDACTED",
+  "user:ORG_ADMIN_EMAIL_REDACTED",
 ]
+
+cloud_identity_customer_id = "CLOUD_IDENTITY_ID_REDACTED"
 
 allowed_regions       = ["in:us-locations"]
 org_budget_amount     = 50
