@@ -174,7 +174,7 @@ Perimeter baseline enforced:
 - No SA key creation (WIF required)
 - Uniform bucket access + public access prevention
 - US-only resource locations
-- IAM restricted to Cloud Identity tenant (`CLOUD_IDENTITY_ID_REDACTED`)
+- IAM restricted to Cloud Identity tenant (`iam.allowedPolicyMemberDomains`)
 - ADMIN_READ / DATA_READ / DATA_WRITE audit logs on all services
 
 ⸻
