@@ -30,16 +30,15 @@ This guide assumes those are in place and focuses on what to build next.
 
 ⸻
 
-## Phase 1: Foundation & Guardrails (Start Here)
+## Phase 1: Foundation & Guardrails ✅ Complete
 
 ### Phase 1 Exit Criteria (So you know you’re “done”)
 
-You can move on to Phase 2 only when:
-	•	Folder hierarchy exists via Terraform
-	•	Terraform remote state bucket exists, is locked down, and has versioning
-	•	GitHub Actions can run plan and apply using Workload Identity Federation (no long-lived keys)
-	•	A minimal baseline of org/folder policies is enforced
-	•	Budgets/alerts exist (even small) to prevent surprise spend
+- ✅ Folder hierarchy exists via Terraform
+- ✅ Terraform remote state bucket exists, is locked down, and has versioning
+- ✅ GitHub Actions can run plan and apply using Workload Identity Federation (no long-lived keys)
+- ✅ A minimal baseline of org/folder policies is enforced
+- ✅ Budgets/alerts exist (even small) to prevent surprise spend
 
 Keep this phase boring. Boring is the point.
 
@@ -99,11 +98,11 @@ Recommended state layout (pragmatic):
 
 ⸻
 
-## Phase 2: GitHub Organization & Repo Layout
+## Phase 2: GitHub Organization & Repo Layout ✅ Complete (single-repo model)
 
-### Authentication (Do this before writing lots of Terraform)
+### Authentication ✅ Done
 
-Use Workload Identity Federation (WIF) from GitHub Actions to GCP **and impersonate a dedicated Terraform service account per repo**.
+Implemented: Workload Identity Federation (WIF) from GitHub Actions to GCP, impersonating `tf-org` service account. No long-lived keys. Managed in `bootstrap/wif.tf`.
 
 	•	No JSON keys stored in GitHub
 	•	Short-lived tokens
@@ -133,69 +132,54 @@ Practical controls:
 
 If you use a single broad “terraform-admin” identity, you’re building a demo, not a platform.
 
-### 2.1 GitHub Organization
+### 2.1 GitHub Organization ✅
 
-Create (or use) a GitHub org dedicated to this platform.
+Using `lame-login-name` GitHub org with `hamilton-hoover.com` as the single monorepo.
+Directories (`bootstrap/`, `org/`, etc.) serve the single-responsibility role that
+separate repos would in a larger org. Simpler at this scale; split if needed later.
 
-Reason:
-	•	Cleaner permissions
-	•	Signals professionalism
-	•	Scales beyond personal use
+### 2.2 Core Repositories ✅
 
-### 2.2 Core Repositories
+Monorepo layout chosen over multi-repo. Layers:
+- `bootstrap/` — WIF, service accounts (applied manually, rarely changes)
+- `org/` — org structure, policies, IAM, budgets (CI-managed)
+- Future: `infrastructure/`, `projects/`, `modules/` within same repo
 
-Create the following repositories:
-	1.	org-bootstrap
-	2.	org-policies
-	3.	platform-foundation
-	4.	workload-examples
-	5.	security-automation
+### 2.3 GitHub Actions Baseline ✅
 
-Each repo must:
-	•	Have a single responsibility
-	•	Be Terraform-first
-	•	Include a clear README
+`.github/workflows/terraform-org.yml` implements:
+- `terraform fmt -check` on every PR
+- `terraform validate` (WIF auth, no keys)
+- `terraform plan` posted as PR comment
+- `terraform apply` on merge to `main`, gated by `apply` environment (required reviewer)
 
-### 2.3 GitHub Actions Baseline
-
-Each repo should have:
-	•	terraform fmt
-	•	terraform validate
-	•	terraform plan on PR
-	•	terraform apply on protected main branch
-
-Rules:
-	•	No auto-apply without review
-	•	main branch protected
-	•	Actions use WIF auth + required service account impersonation (one Terraform SA per repo)
+Fork PRs blocked from CI runs via `github.event.pull_request.head.repo.full_name` guard.
 
 ⸻
 
-## Phase 3: Organization as Code
+## Phase 3: Organization as Code ✅ Complete
 
-### 3.1 org-bootstrap Repo
+### 3.1 bootstrap/ ✅
 
-Manages:
-	•	Folder creation
-	•	Core service accounts
-	•	IAM for CI/CD
-	•	Backend configuration
+Manages: WIF pool/provider, `tf-org` service account, org-level roles for CI SA,
+GCS state bucket IAM. Applied manually — changes here are rare.
 
-This repo is applied rarely.
+### 3.2 org/ ✅
 
-### 3.2 org-policies Repo
+Manages: folder hierarchy, 9 org policies (OrgPolicy v2), org-level IAM,
+3 billing budgets, and Data Access audit logging. CI-managed via GitHub Actions.
 
-Manages:
-	•	Organization policies
-	•	Folder-level constraints
-	•	API restrictions
-	•	Region allowlists
-
-Policies should be opinionated and documented.
+Perimeter baseline enforced:
+- No default VPC, no external IPs, no public Cloud SQL
+- No SA key creation (WIF required)
+- Uniform bucket access + public access prevention
+- US-only resource locations
+- IAM restricted to Cloud Identity tenant (`CLOUD_IDENTITY_ID_REDACTED`)
+- ADMIN_READ / DATA_READ / DATA_WRITE audit logs on all services
 
 ⸻
 
-## Phase 4: Platform Foundation
+## Phase 4: Platform Foundation ← Next
 
 ### 4.1 Project Factory Pattern
 
