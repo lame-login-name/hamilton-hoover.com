@@ -153,8 +153,6 @@ Monorepo layout chosen over multi-repo. Layers:
 - `terraform plan` posted as PR comment
 - `terraform apply` on merge to `main`, gated by `apply` environment (required reviewer)
 
-Fork PRs blocked from CI runs via `github.event.pull_request.head.repo.full_name` guard.
-
 ⸻
 
 ## Phase 3: Organization as Code ✅ Complete
