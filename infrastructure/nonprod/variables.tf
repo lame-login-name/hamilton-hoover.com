@@ -17,3 +17,9 @@ variable "shared_services_folder_id" {
   description = "Numeric ID of the shared-services folder. Projects created here land in that folder."
   type        = string
 }
+
+variable "audit_log_retention_days" {
+  description = "Days to retain audit log partitions and tables in BigQuery. Keep short on nonprod to minimise storage cost."
+  type        = number
+  default     = 7
+}

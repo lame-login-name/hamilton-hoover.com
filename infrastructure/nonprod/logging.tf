@@ -32,8 +32,10 @@ resource "google_bigquery_dataset" "audit_logs" {
   friendly_name = "Audit Logs — Nonprod"
   description   = "Org-level audit logs from Cloud Logging. Partitioned, 30-day retention."
 
-  # 30 days — keeps storage near zero for a low-traffic org
-  default_partition_expiration_ms = 2592000000
+  # Partition expiry — each day's partition is dropped after this window.
+  # Belt-and-suspenders: table expiry catches any non-partitioned tables the sink creates.
+  default_partition_expiration_ms = var.audit_log_retention_days * 24 * 60 * 60 * 1000
+  default_table_expiration_ms     = var.audit_log_retention_days * 24 * 60 * 60 * 1000
 
   # Safety guard: a tf destroy should not silently drop audit history
   delete_contents_on_destroy = false
