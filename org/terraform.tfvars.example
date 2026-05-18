@@ -3,7 +3,7 @@
 
 organization_id      = "459863125464"
 organization_domain  = "hamilton-hoover.com"
-billing_account_id   = "01CE05-D8FE66-79E225"
+billing_account_id   = "TODO"   # e.g. ABCDEF-GHIJKL-MNOPQR
 bootstrap_project_id = "massive-runway-432502-n1"
 
 # The human identity with org admin rights.

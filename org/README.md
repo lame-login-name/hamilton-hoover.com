@@ -84,14 +84,16 @@ CI handles all applies. Local runs are for development only:
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# Fill in cloud_identity_customer_id and any local overrides
+# Fill in billing_account_id, org_admin_members, cloud_identity_customer_id
 gcloud auth application-default login
 terraform init
-terraform plan
+terraform plan -var-file=terraform.tfvars
 ```
 
-`ci.auto.tfvars` is committed and auto-loaded — no `-var-file` flag needed.
-Create `terraform.tfvars` only to override values for local testing.
+`ci.auto.tfvars` is committed and auto-loaded with non-sensitive values.
+Sensitive values (`billing_account_id`, `org_admin_members`, `cloud_identity_customer_id`)
+are injected at runtime from GitHub Actions variables (`BILLING_ACCOUNT_ID`,
+`ORG_ADMIN_EMAIL`, `CLOUD_IDENTITY_CUSTOMER_ID`) — never committed to git.
 
 ## Adding a new org policy
 
@@ -99,6 +101,6 @@ Create `terraform.tfvars` only to override values for local testing.
 2. If the constraint already exists in GCP, import it first:
    ```bash
    terraform import google_org_policy_policy.<name> \
-     organizations/459863125464/policies/<constraint>
+     organizations/<ORG_ID>/policies/<constraint>
    ```
 3. Open a PR — plan will show the change, apply runs on merge

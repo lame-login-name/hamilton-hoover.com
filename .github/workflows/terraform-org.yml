@@ -26,6 +26,8 @@ jobs:
   fmt:
     name: Format check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +42,10 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +57,14 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.TF_ORG_SA }}
+
+      - name: Write CI sensitive vars
+        run: |
+          cat > /tmp/ci-sensitive.tfvars << EOF
+          billing_account_id         = "${{ vars.BILLING_ACCOUNT_ID }}"
+          org_admin_members          = ["user:${{ vars.ORG_ADMIN_EMAIL }}"]
+          cloud_identity_customer_id = "${{ vars.CLOUD_IDENTITY_CUSTOMER_ID }}"
+          EOF
 
       - name: terraform init
         run: terraform init
@@ -63,8 +77,12 @@ jobs:
   plan:
     name: Plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     needs: [fmt, validate]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +95,14 @@ jobs:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.TF_ORG_SA }}
 
+      - name: Write CI sensitive vars
+        run: |
+          cat > /tmp/ci-sensitive.tfvars << EOF
+          billing_account_id         = "${{ vars.BILLING_ACCOUNT_ID }}"
+          org_admin_members          = ["user:${{ vars.ORG_ADMIN_EMAIL }}"]
+          cloud_identity_customer_id = "${{ vars.CLOUD_IDENTITY_CUSTOMER_ID }}"
+          EOF
+
       - name: terraform init
         run: terraform init
         working-directory: ${{ env.TF_ROOT }}
@@ -86,7 +112,7 @@ jobs:
         # Capture stdout+stderr together; tee writes to file and passes through.
         # PIPESTATUS[0] ensures the step fails on terraform error, not tee error.
         run: |
-          terraform plan -no-color -out=tfplan 2>&1 | tee /tmp/plan.txt
+          terraform plan -var-file=/tmp/ci-sensitive.tfvars -no-color -out=tfplan 2>&1 | tee /tmp/plan.txt
           exit ${PIPESTATUS[0]}
         working-directory: ${{ env.TF_ROOT }}
 
@@ -124,6 +150,9 @@ jobs:
   apply:
     name: Apply
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     needs: [fmt, validate]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # 'apply' environment requires manual approval in GitHub repo settings.
@@ -141,6 +170,14 @@ jobs:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.TF_ORG_SA }}
 
+      - name: Write CI sensitive vars
+        run: |
+          cat > /tmp/ci-sensitive.tfvars << EOF
+          billing_account_id         = "${{ vars.BILLING_ACCOUNT_ID }}"
+          org_admin_members          = ["user:${{ vars.ORG_ADMIN_EMAIL }}"]
+          cloud_identity_customer_id = "${{ vars.CLOUD_IDENTITY_CUSTOMER_ID }}"
+          EOF
+
       - name: terraform init
         run: terraform init
         working-directory: ${{ env.TF_ROOT }}
@@ -148,7 +185,7 @@ jobs:
       # Re-plan from current state rather than using the PR plan artifact.
       # Prevents applying a stale plan if state changed between PR and merge.
       - name: terraform plan
-        run: terraform plan -out=tfplan
+        run: terraform plan -var-file=/tmp/ci-sensitive.tfvars -out=tfplan
         working-directory: ${{ env.TF_ROOT }}
 
       - name: terraform apply
