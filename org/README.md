@@ -1,144 +1,104 @@
-# Organization Management
+# org/ — Organization Layer
 
-This directory contains Terraform configurations for managing the GCP organization-level resources, policies, and structure.
-
-## Overview
-
-The organization layer is the top-level management layer that defines:
-- Organization policies and security constraints
-- IAM roles and permissions at the organization level
-- Folder structure for organizing projects
-- Billing account management and budgets
-- Organization-wide settings and configurations
+Manages the GCP organization root: folder structure, org policies, IAM, billing budgets,
+and audit logging. Applied automatically by GitHub Actions on every merge to `main`.
 
 ## Files
 
-### `org-policies.tf`
-Defines organization-level policies that enforce security and compliance rules across all resources:
-- OS Login requirements
-- External IP restrictions
-- HTTPS load balancer requirements
-- Service account key restrictions
-- Resource location constraints
-- Encryption in transit requirements
+| File | What it manages |
+|---|---|
+| `main.tf` | GCS remote backend (`hh-org-tfstate/org`), provider config |
+| `folders.tf` | Five top-level folders under the org root |
+| `org-policies.tf` | Nine organization policies (OrgPolicy v2) |
+| `org-iam.tf` | Org-level IAM bindings for the human admin (additive) |
+| `billing.tf` | Three billing budgets with 50/80/100% alert thresholds |
+| `audit.tf` | Data Access audit logging for all GCP services |
+| `variables.tf` | All input variables |
+| `ci.auto.tfvars` | Non-sensitive values committed for CI auto-load |
+| `terraform.tfvars.example` | Template for local `terraform.tfvars` (gitignored) |
 
-### `org-iam.tf`
-Manages IAM roles and permissions at the organization level:
-- Organization administrators
-- Billing administrators
-- Security administrators
-- Network administrators
-- Custom roles for specific use cases
+## Folder hierarchy
 
-### `folders.tf`
-Creates and manages the folder hierarchy for organizing projects:
-- Environment-based folders (Production, Staging, Development)
-- Functional folders (Security, Shared Services, Sandbox)
-- Department-specific folders (Engineering, Data, Marketing)
-- Folder-level IAM bindings
+| Folder | ID | Purpose |
+|---|---|---|
+| platform | `35099315380` | Platform engineering tooling |
+| shared-services | `959737491214` | Shared logging, DNS, CI support |
+| nonprod | `794298776125` | Dev and staging workloads |
+| prod | `210123964977` | Production workloads |
+| sandbox | `868784437733` | Experimental / throwaway projects |
 
-### `billing.tf`
-Handles billing account management and cost control:
-- Billing account associations
-- Budget alerts and thresholds
-- Billing data export to BigQuery
-- Billing IAM permissions
+The `gcp-internal-cloud-setup` folder (`225030657532`) is intentionally unmanaged.
 
-### `variables.tf`
-Defines all input variables for organization-level configurations including:
-- Organization and billing account IDs
-- IAM member lists
-- Budget configurations
-- Region restrictions
-- Common tags and labels
+## Org policies enforced
 
-## Usage
+All set at org root using `google_org_policy_policy` (OrgPolicy v2) and inherited everywhere:
 
-1. **Prerequisites**:
-   - GCP Organization set up
-   - Appropriate permissions to manage organization resources
-   - Terraform >= 1.0
-   - Google Cloud Provider configured
+| Resource name | Constraint | Effect |
+|---|---|---|
+| `skip_default_network` | `compute.skipDefaultNetworkCreation` | No auto-VPC on new projects |
+| `require_os_login` | `compute.requireOsLogin` | SSH tied to IAM, not project keys |
+| `vm_no_external_ip` | `compute.vmExternalIpAccess` | Deny all external IPs on VMs |
+| `sql_no_public_ip` | `sql.restrictPublicIp` | No public IPs on Cloud SQL |
+| `no_sa_key_creation` | `iam.disableServiceAccountKeyCreation` | Use WIF instead of key files |
+| `gcs_uniform_access` | `storage.uniformBucketLevelAccess` | IAM only, no per-object ACLs |
+| `gcs_public_access_prevention` | `storage.publicAccessPrevention` | No public GCS objects |
+| `resource_locations` | `gcp.resourceLocations` | US regions only (`in:us-locations`) |
+| `allowed_policy_member_domains` | `iam.allowedPolicyMemberDomains` | Only Cloud Identity tenant members in IAM |
 
-2. **Configuration**:
-   ```hcl
-   # terraform.tfvars example
-   organization_id = "123456789012"
-   billing_account_id = "ABCDEF-GHIJKL-MNOPQR"
-   organization_domain = "example.com"
-   
-   org_admin_members = [
-     "user:admin@example.com",
-     "group:org-admins@example.com"
-   ]
-   
-   allowed_regions = [
-     "us-central1",
-     "us-east1",
-     "europe-west1"
-   ]
-   ```
+## Audit logging
 
-3. **Deployment**:
+`audit.tf` configures `google_organization_iam_audit_config` on `allServices`:
+- `ADMIN_READ` — who is reading IAM policies and configs
+- `DATA_READ` — who is reading data (GCS objects, BigQuery rows, etc.)
+- `DATA_WRITE` — who is writing data
+
+Admin Activity logs are always on by default and are not configured here.
+
+## Billing budgets
+
+| Budget | Amount | Scope |
+|---|---|---|
+| `org_total` | $50/mo | All billing account spend |
+| `prod` | $30/mo | `prod` folder |
+| `nonprod` | $20/mo | `nonprod` + `sandbox` folders |
+
+Alerts fire at 50%, 80%, and 100% of each cap. GCP emails billing admins automatically.
+
+## IAM
+
+`org-iam.tf` grants five roles to `org_admin_members` using additive
+`google_organization_iam_member` (not authoritative binding, won't clobber other grants):
+
+- `roles/resourcemanager.organizationAdmin`
+- `roles/resourcemanager.folderCreator`
+- `roles/resourcemanager.projectCreator`
+- `roles/orgpolicy.policyAdmin`
+- `roles/billing.admin`
+
+The `tf-org` CI service account's org-level roles are managed in `bootstrap/wif.tf`
+to avoid two Terraform states owning the same IAM binding.
+
+## Deploying locally
+
+CI handles all applies. Local runs are for development only:
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+# Fill in cloud_identity_customer_id and any local overrides
+gcloud auth application-default login
+terraform init
+terraform plan
+```
+
+`ci.auto.tfvars` is committed and auto-loaded — no `-var-file` flag needed.
+Create `terraform.tfvars` only to override values for local testing.
+
+## Adding a new org policy
+
+1. Add a `google_org_policy_policy` block to `org-policies.tf`
+2. If the constraint already exists in GCP, import it first:
    ```bash
-   terraform init
-   terraform plan
-   terraform apply
+   terraform import google_org_policy_policy.<name> \
+     organizations/459863125464/policies/<constraint>
    ```
-
-## Security Considerations
-
-- **Principle of Least Privilege**: IAM roles are granted with minimal necessary permissions
-- **Organization Policies**: Enforce security constraints across all resources
-- **Billing Controls**: Budget alerts prevent unexpected costs
-- **Audit Logging**: All organization changes are logged for compliance
-
-## Folder Structure
-
-The following folder hierarchy is created:
-```
-Organization
-├── Production/
-│   ├── Engineering/
-│   ├── Data & Analytics/
-│   └── Marketing/
-├── Staging/
-├── Development/
-├── Shared Services/
-├── Security/
-└── Sandbox/
-```
-
-## Best Practices
-
-1. **Environment Separation**: Clear separation between production, staging, and development
-2. **Security First**: Security policies enforced from the top down
-3. **Cost Management**: Budgets and alerts at multiple levels
-4. **Governance**: Clear folder structure and IAM hierarchy
-5. **Compliance**: Organization policies ensure regulatory compliance
-
-## Outputs
-
-The configuration provides the following outputs:
-- `folder_ids`: Map of folder names to their IDs
-- `folder_names`: Map of folder names to their resource names
-- `billing_account_id`: The billing account ID
-- `billing_dataset_id`: BigQuery dataset for billing exports
-
-## Dependencies
-
-This configuration should be applied before:
-- Global infrastructure (`../global/`)
-- Project configurations (`../projects/`)
-- Module implementations (`../modules/`)
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. **Insufficient Permissions**: Ensure the service account has Organization Admin role
-2. **Billing Account Access**: Verify billing account permissions
-3. **API Enablement**: Some APIs may need manual enablement
-4. **Policy Conflicts**: Check for existing organization policies that may conflict
-
-For more information, refer to the [GCP Organization documentation](https://cloud.google.com/resource-manager/docs/organization).
+3. Open a PR — plan will show the change, apply runs on merge
