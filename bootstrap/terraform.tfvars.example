@@ -1,7 +1,12 @@
 # Copy to terraform.tfvars — gitignored, never commit.
 
-bootstrap_project_id = "massive-runway-432502-n1"
-organization_id      = "459863125464"
-github_org           = "lame-login-name"
-github_repo_org      = "hamilton-hoover.com"
-tf_state_bucket      = "hh-org-tfstate"
+bootstrap_project_id = "TODO"
+organization_id      = "TODO"
+billing_account_id   = "TODO"   # e.g. ABCDEF-GHIJKL-MNOPQR
+github_org           = "TODO"
+github_repo_org      = "TODO"
+tf_state_bucket      = "TODO"
+
+# Numeric ID of the shared-services folder (created by org/ layer).
+# Run: gcloud resource-manager folders list --organization=<ORG_ID>
+shared_services_folder_id = "TODO"

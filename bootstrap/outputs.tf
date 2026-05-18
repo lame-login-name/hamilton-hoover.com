@@ -7,3 +7,8 @@ output "tf_org_sa_email" {
   description = "tf-org service account email. Set this as the TF_ORG_SA GitHub Actions repository variable."
   value       = google_service_account.tf_org.email
 }
+
+output "tf_infra_sa_email" {
+  description = "tf-infra service account email. Set this as the TF_INFRA_SA GitHub Actions repository variable."
+  value       = google_service_account.tf_infra.email
+}

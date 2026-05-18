@@ -22,3 +22,13 @@ variable "tf_state_bucket" {
   description = "GCS bucket name that holds all Terraform state. The tf-org SA gets objectAdmin on it."
   type        = string
 }
+
+variable "shared_services_folder_id" {
+  description = "Numeric ID of the shared-services folder (without 'folders/' prefix). tf-infra is scoped to this folder."
+  type        = string
+}
+
+variable "billing_account_id" {
+  description = "Billing account ID. Used to grant tf-infra billing.user so it can attach billing to new projects."
+  type        = string
+}
