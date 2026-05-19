@@ -10,7 +10,7 @@ module "logging_project" {
   source = "../../modules/project"
 
   project_id         = "hh-logging-nonprod"
-  project_name       = "HH Logging — Nonprod"
+  project_name       = "HH Logging Nonprod"
   folder_id          = var.shared_services_folder_id
   billing_account_id = var.billing_account_id
   environment        = "nonprod"
