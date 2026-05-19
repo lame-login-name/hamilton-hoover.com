@@ -108,3 +108,71 @@ resource "google_organization_iam_member" "tf_org_billing_admin" {
   role   = "roles/billing.admin"
   member = "serviceAccount:${google_service_account.tf_org.email}"
 }
+
+# --- Terraform service account: infrastructure ---
+
+resource "google_service_account" "tf_infra" {
+  project      = var.bootstrap_project_id
+  account_id   = "tf-infra"
+  display_name = "Terraform SA — infrastructure"
+  description  = "Used by GitHub Actions to manage shared infrastructure projects (logging, networking)."
+}
+
+# Allow GitHub Actions workflows in the same repo to impersonate this SA.
+resource "google_service_account_iam_member" "tf_infra_wif" {
+  service_account_id = google_service_account.tf_infra.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_org}/${var.github_repo_org}"
+}
+
+# GCS state access
+resource "google_storage_bucket_iam_member" "tf_infra_state" {
+  bucket = var.tf_state_bucket
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.tf_infra.email}"
+}
+
+# --- Folder-level roles for tf-infra (shared-services folder) ---
+# Scoped to shared-services only — tf-infra cannot touch prod or nonprod workload folders.
+
+resource "google_folder_iam_member" "tf_infra_project_creator" {
+  folder = "folders/${var.shared_services_folder_id}"
+  role   = "roles/resourcemanager.projectCreator"
+  member = "serviceAccount:${google_service_account.tf_infra.email}"
+}
+
+resource "google_folder_iam_member" "tf_infra_project_deleter" {
+  folder = "folders/${var.shared_services_folder_id}"
+  role   = "roles/resourcemanager.projectDeleter"
+  member = "serviceAccount:${google_service_account.tf_infra.email}"
+}
+
+resource "google_folder_iam_member" "tf_infra_editor" {
+  folder = "folders/${var.shared_services_folder_id}"
+  role   = "roles/editor"
+  member = "serviceAccount:${google_service_account.tf_infra.email}"
+}
+
+resource "google_folder_iam_member" "tf_infra_bigquery_admin" {
+  folder = "folders/${var.shared_services_folder_id}"
+  role   = "roles/bigquery.admin"
+  member = "serviceAccount:${google_service_account.tf_infra.email}"
+}
+
+# --- Org-level roles for tf-infra ---
+# Required to create org-level log sinks (include_children = true).
+
+resource "google_organization_iam_member" "tf_infra_logging_config" {
+  org_id = var.organization_id
+  role   = "roles/logging.configWriter"
+  member = "serviceAccount:${google_service_account.tf_infra.email}"
+}
+
+# --- Billing account role for tf-infra ---
+# Required to attach billing to new projects.
+
+resource "google_billing_account_iam_member" "tf_infra_billing_user" {
+  billing_account_id = var.billing_account_id
+  role               = "roles/billing.user"
+  member             = "serviceAccount:${google_service_account.tf_infra.email}"
+}

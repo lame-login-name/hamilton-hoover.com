@@ -12,7 +12,7 @@ resource "google_compute_network" "nonprod_vpc" {
   project                 = var.nonprod_shared_vpc_host_project_id
   name                    = var.nonprod_vpc_name
   auto_create_subnetworks = false
-  routing_mode            = "REGIONAL"  # Regional routing for cost optimization
+  routing_mode            = "REGIONAL" # Regional routing for cost optimization
   description             = "Non-production shared VPC network for staging and development"
 
   depends_on = [
@@ -43,8 +43,8 @@ resource "google_compute_subnetwork" "staging_subnet_us_central1" {
   # Reduced logging for cost optimization
   log_config {
     aggregation_interval = "INTERVAL_10_MIN"
-    flow_sampling        = 0.1  # Reduced sampling for non-prod
-    metadata            = "INCLUDE_ALL_METADATA"
+    flow_sampling        = 0.1 # Reduced sampling for non-prod
+    metadata             = "INCLUDE_ALL_METADATA"
   }
 
   private_ip_google_access = true
@@ -71,8 +71,8 @@ resource "google_compute_subnetwork" "dev_subnet_us_central1" {
 
   log_config {
     aggregation_interval = "INTERVAL_10_MIN"
-    flow_sampling        = 0.05  # Minimal sampling for development
-    metadata            = "INCLUDE_ALL_METADATA"
+    flow_sampling        = 0.05 # Minimal sampling for development
+    metadata             = "INCLUDE_ALL_METADATA"
   }
 
   private_ip_google_access = true
@@ -101,7 +101,7 @@ resource "google_compute_subnetwork" "test_subnet_us_central1" {
   log_config {
     aggregation_interval = "INTERVAL_10_MIN"
     flow_sampling        = 0.01
-    metadata            = "INCLUDE_ALL_METADATA"
+    metadata             = "INCLUDE_ALL_METADATA"
   }
 
   private_ip_google_access = true
@@ -145,7 +145,7 @@ resource "google_compute_firewall" "nonprod_allow_ssh_iap" {
     ports    = ["22"]
   }
 
-  source_ranges = ["35.235.240.0/20"]  # IAP IP range
+  source_ranges = ["35.235.240.0/20"] # IAP IP range
   target_tags   = ["allow-ssh-nonprod"]
 
   description = "Allow SSH through Identity-Aware Proxy for non-production"
@@ -163,7 +163,7 @@ resource "google_compute_firewall" "nonprod_allow_rdp_iap" {
     ports    = ["3389"]
   }
 
-  source_ranges = ["35.235.240.0/20"]  # IAP IP range
+  source_ranges = ["35.235.240.0/20"] # IAP IP range
   target_tags   = ["allow-rdp-nonprod"]
 
   description = "Allow RDP through Identity-Aware Proxy for non-production Windows instances"
@@ -226,15 +226,15 @@ resource "google_compute_router_nat" "nonprod_nat_us_central1" {
   router  = google_compute_router.nonprod_router_us_central1.name
   region  = "us-central1"
 
-  nat_ip_allocate_option             = "AUTO_ONLY"  # Auto-allocated for cost savings
+  nat_ip_allocate_option             = "AUTO_ONLY" # Auto-allocated for cost savings
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 
   log_config {
     enable = true
-    filter = "ERRORS_ONLY"  # Minimal logging for cost optimization
+    filter = "ERRORS_ONLY" # Minimal logging for cost optimization
   }
 
-  min_ports_per_vm = 32  # Reduced port allocation for cost optimization
+  min_ports_per_vm = 32 # Reduced port allocation for cost optimization
 }
 
 # Enable required APIs for non-production
@@ -242,7 +242,7 @@ resource "google_project_service" "nonprod_compute_api" {
   project = var.nonprod_shared_vpc_host_project_id
   service = "compute.googleapis.com"
 
-  disable_dependent_services = true  # Allow cleanup in non-prod
+  disable_dependent_services = true # Allow cleanup in non-prod
 }
 
 resource "google_project_service" "nonprod_container_api" {
@@ -261,7 +261,7 @@ resource "google_compute_shared_vpc_host_project" "nonprod_host" {
 # Service projects attachment for non-production
 resource "google_compute_shared_vpc_service_project" "nonprod_service_projects" {
   for_each = var.enable_shared_vpc ? toset(var.nonprod_service_project_ids) : []
-  
+
   host_project    = var.nonprod_shared_vpc_host_project_id
   service_project = each.value
 
@@ -273,7 +273,7 @@ resource "google_compute_shared_vpc_service_project" "nonprod_service_projects" 
 # IAM bindings for Shared VPC in non-production
 resource "google_project_iam_member" "nonprod_shared_vpc_admin" {
   for_each = var.enable_shared_vpc ? toset(var.shared_vpc_admins) : []
-  
+
   project = var.nonprod_shared_vpc_host_project_id
   role    = "roles/compute.xpnAdmin"
   member  = each.value

@@ -18,7 +18,7 @@ resource "google_dns_managed_zone" "dev_zone" {
   description = "Development environment DNS zone"
 
   dnssec_config {
-    state = "off"  # DNSSEC disabled for development flexibility
+    state = "off" # DNSSEC disabled for development flexibility
   }
 
   visibility = "public"
@@ -37,13 +37,13 @@ resource "google_dns_managed_zone" "staging_zone" {
 
     default_key_specs {
       algorithm  = "rsasha256"
-      key_length = 1024  # Smaller key for staging
+      key_length = 1024 # Smaller key for staging
       key_type   = "keySigning"
     }
 
     default_key_specs {
       algorithm  = "rsasha256"
-      key_length = 512   # Smaller key for staging
+      key_length = 512 # Smaller key for staging
       key_type   = "zoneSigning"
     }
   }
@@ -74,7 +74,7 @@ resource "google_dns_record_set" "dev_wildcard" {
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = "*.${var.dev_domain_name}"
   type         = "A"
-  ttl          = 60  # Short TTL for rapid iteration
+  ttl          = 60 # Short TTL for rapid iteration
   rrdatas      = var.dev_wildcard_ip_addresses
 }
 

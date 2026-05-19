@@ -37,8 +37,8 @@ resource "google_compute_subnetwork" "staging_subnet_us_central1" {
 
   log_config {
     aggregation_interval = "INTERVAL_5_MIN"
-    flow_sampling        = 0.1  # Reduced for cost optimization
-    metadata            = "INCLUDE_ALL_METADATA"
+    flow_sampling        = 0.1 # Reduced for cost optimization
+    metadata             = "INCLUDE_ALL_METADATA"
   }
 }
 
@@ -63,8 +63,8 @@ resource "google_compute_subnetwork" "dev_subnet_us_central1" {
 
   log_config {
     aggregation_interval = "INTERVAL_5_MIN"
-    flow_sampling        = 0.05  # Minimal sampling for cost
-    metadata            = "EXCLUDE_ALL_METADATA"  # Cost optimization
+    flow_sampling        = 0.05                   # Minimal sampling for cost
+    metadata             = "EXCLUDE_ALL_METADATA" # Cost optimization
   }
 }
 
@@ -87,11 +87,11 @@ resource "google_compute_router_nat" "nonprod_nat_us_central1" {
   router  = google_compute_router.nonprod_router_us_central1.name
   region  = "us-central1"
 
-  nat_ip_allocate_option             = "AUTO_ONLY"  # Auto-allocated for cost savings
+  nat_ip_allocate_option             = "AUTO_ONLY" # Auto-allocated for cost savings
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_PRIMARY_IP_RANGES"
 
   log_config {
-    enable = false  # Disabled for cost optimization
+    enable = false # Disabled for cost optimization
     filter = "ERRORS_ONLY"
   }
 }
@@ -135,7 +135,7 @@ resource "google_compute_firewall" "nonprod_allow_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["35.235.240.0/20"]  # IAP range
+  source_ranges = ["35.235.240.0/20"] # IAP range
   target_tags   = ["ssh-access"]
 }
 

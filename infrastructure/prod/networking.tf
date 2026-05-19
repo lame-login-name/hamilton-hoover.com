@@ -43,9 +43,9 @@ resource "google_compute_subnetwork" "prod_subnet_us_central1" {
   # Enhanced logging for production monitoring
   log_config {
     aggregation_interval = "INTERVAL_5_SEC"
-    flow_sampling        = 1.0  # Full sampling for production
-    metadata            = "INCLUDE_ALL_METADATA"
-    metadata_fields     = ["src_vpc", "dst_vpc", "project_id", "direction"]
+    flow_sampling        = 1.0 # Full sampling for production
+    metadata             = "INCLUDE_ALL_METADATA"
+    metadata_fields      = ["src_vpc", "dst_vpc", "project_id", "direction"]
   }
 
   # Private Google Access for secure API communication
@@ -73,8 +73,8 @@ resource "google_compute_subnetwork" "prod_subnet_us_east1" {
   log_config {
     aggregation_interval = "INTERVAL_5_SEC"
     flow_sampling        = 1.0
-    metadata            = "INCLUDE_ALL_METADATA"
-    metadata_fields     = ["src_vpc", "dst_vpc", "project_id", "direction"]
+    metadata             = "INCLUDE_ALL_METADATA"
+    metadata_fields      = ["src_vpc", "dst_vpc", "project_id", "direction"]
   }
 
   private_ip_google_access = true
@@ -101,8 +101,8 @@ resource "google_compute_subnetwork" "prod_subnet_us_west1" {
   log_config {
     aggregation_interval = "INTERVAL_5_SEC"
     flow_sampling        = 1.0
-    metadata            = "INCLUDE_ALL_METADATA"
-    metadata_fields     = ["src_vpc", "dst_vpc", "project_id", "direction"]
+    metadata             = "INCLUDE_ALL_METADATA"
+    metadata_fields      = ["src_vpc", "dst_vpc", "project_id", "direction"]
   }
 
   private_ip_google_access = true
@@ -145,7 +145,7 @@ resource "google_compute_firewall" "prod_allow_ssh_iap" {
     ports    = ["22"]
   }
 
-  source_ranges = ["35.235.240.0/20"]  # IAP IP range
+  source_ranges = ["35.235.240.0/20"] # IAP IP range
   target_tags   = ["allow-ssh-prod"]
 
   description = "Allow SSH through Identity-Aware Proxy for production"
@@ -214,8 +214,8 @@ resource "google_compute_router" "prod_router_us_central1" {
   network = google_compute_network.prod_vpc.id
 
   bgp {
-    asn = var.prod_bgp_asn
-    advertise_mode = "CUSTOM"
+    asn               = var.prod_bgp_asn
+    advertise_mode    = "CUSTOM"
     advertised_groups = ["ALL_SUBNETS"]
   }
 }
@@ -240,7 +240,7 @@ resource "google_compute_router_nat" "prod_nat_us_central1" {
     filter = "ALL"
   }
 
-  min_ports_per_vm = 64
+  min_ports_per_vm                    = 64
   enable_endpoint_independent_mapping = true
 }
 
@@ -259,8 +259,8 @@ resource "google_compute_router" "prod_router_us_east1" {
   network = google_compute_network.prod_vpc.id
 
   bgp {
-    asn = var.prod_bgp_asn
-    advertise_mode = "CUSTOM"
+    asn               = var.prod_bgp_asn
+    advertise_mode    = "CUSTOM"
     advertised_groups = ["ALL_SUBNETS"]
   }
 }
@@ -285,7 +285,7 @@ resource "google_compute_router_nat" "prod_nat_us_east1" {
     filter = "ALL"
   }
 
-  min_ports_per_vm = 64
+  min_ports_per_vm                    = 64
   enable_endpoint_independent_mapping = true
 }
 
@@ -294,7 +294,7 @@ resource "google_project_service" "prod_compute_api" {
   project = var.prod_shared_vpc_host_project_id
   service = "compute.googleapis.com"
 
-  disable_dependent_services = false  # Keep dependent services for production
+  disable_dependent_services = false # Keep dependent services for production
 }
 
 resource "google_project_service" "prod_container_api" {

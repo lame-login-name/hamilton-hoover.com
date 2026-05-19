@@ -15,9 +15,9 @@ resource "google_compute_network_peering" "nonprod_shared_services_peering" {
   network      = data.google_compute_network.nonprod_vpc.self_link
   peer_network = var.nonprod_shared_services_network_self_link
 
-  auto_create_routes                = true  # Auto routes for simplified management
-  import_custom_routes              = var.nonprod_import_shared_routes
-  export_custom_routes              = var.nonprod_export_custom_routes
+  auto_create_routes                  = true # Auto routes for simplified management
+  import_custom_routes                = var.nonprod_import_shared_routes
+  export_custom_routes                = var.nonprod_export_custom_routes
   import_subnet_routes_with_public_ip = false
   export_subnet_routes_with_public_ip = false
 }
@@ -29,10 +29,10 @@ resource "google_compute_network_peering" "nonprod_partner_peering" {
   network      = data.google_compute_network.nonprod_vpc.self_link
   peer_network = var.nonprod_partner_network_self_link
 
-  auto_create_routes                = true
-  import_custom_routes              = var.nonprod_import_partner_routes
-  export_custom_routes              = var.nonprod_export_custom_routes
-  import_subnet_routes_with_public_ip = true  # More permissive for testing
+  auto_create_routes                  = true
+  import_custom_routes                = var.nonprod_import_partner_routes
+  export_custom_routes                = var.nonprod_export_custom_routes
+  import_subnet_routes_with_public_ip = true # More permissive for testing
   export_subnet_routes_with_public_ip = true
 }
 
@@ -43,9 +43,9 @@ resource "google_compute_network_peering" "staging_to_prod_peering" {
   network      = data.google_compute_network.nonprod_vpc.self_link
   peer_network = var.prod_vpc_self_link
 
-  auto_create_routes                = false  # Manual control for cross-env
-  import_custom_routes              = false
-  export_custom_routes              = false
+  auto_create_routes                  = false # Manual control for cross-env
+  import_custom_routes                = false
+  export_custom_routes                = false
   import_subnet_routes_with_public_ip = false
   export_subnet_routes_with_public_ip = false
 }
@@ -60,7 +60,7 @@ resource "google_compute_router" "nonprod_peering_router" {
 
   bgp {
     asn               = var.nonprod_local_bgp_asn
-    advertise_mode    = "DEFAULT"  # Simplified for non-prod
+    advertise_mode    = "DEFAULT" # Simplified for non-prod
     advertised_groups = ["ALL_SUBNETS"]
   }
 }
@@ -79,7 +79,7 @@ resource "google_compute_external_vpn_gateway" "nonprod_test_gateway" {
   count           = var.enable_nonprod_vpn ? 1 : 0
   project         = var.nonprod_shared_vpc_host_project_id
   name            = "nonprod-test-vpn-gateway"
-  redundancy_type = "TWO_IPS_REDUNDANCY"  # Simplified for testing
+  redundancy_type = "TWO_IPS_REDUNDANCY" # Simplified for testing
   description     = "Non-production external VPN gateway for testing"
 
   dynamic "interface" {
@@ -93,44 +93,44 @@ resource "google_compute_external_vpn_gateway" "nonprod_test_gateway" {
 
 # Non-production VPN tunnels with basic configuration
 resource "google_compute_vpn_tunnel" "nonprod_test_tunnels" {
-  count     = var.enable_nonprod_vpn ? length(var.nonprod_test_vpn_interfaces) : 0
-  project   = var.nonprod_shared_vpc_host_project_id
-  name      = "nonprod-test-tunnel-${count.index}"
-  region    = "us-central1"
-  
-  vpn_gateway           = google_compute_ha_vpn_gateway.nonprod_vpn_gateway[0].id
-  vpn_gateway_interface = count.index
-  peer_external_gateway = google_compute_external_vpn_gateway.nonprod_test_gateway[0].id
+  count   = var.enable_nonprod_vpn ? length(var.nonprod_test_vpn_interfaces) : 0
+  project = var.nonprod_shared_vpc_host_project_id
+  name    = "nonprod-test-tunnel-${count.index}"
+  region  = "us-central1"
+
+  vpn_gateway                     = google_compute_ha_vpn_gateway.nonprod_vpn_gateway[0].id
+  vpn_gateway_interface           = count.index
+  peer_external_gateway           = google_compute_external_vpn_gateway.nonprod_test_gateway[0].id
   peer_external_gateway_interface = count.index
-  
+
   shared_secret = var.nonprod_vpn_shared_secrets[count.index]
   router        = var.enable_nonprod_dynamic_routing ? google_compute_router.nonprod_peering_router[0].name : null
-  
+
   ike_version = 2
 }
 
 # BGP sessions for non-production testing
 resource "google_compute_router_interface" "nonprod_test_interface" {
-  count      = var.enable_nonprod_dynamic_routing && var.enable_nonprod_vpn ? 1 : 0
-  project    = var.nonprod_shared_vpc_host_project_id
-  name       = "nonprod-test-interface"
-  router     = google_compute_router.nonprod_peering_router[0].name
-  region     = "us-central1"
-  
+  count   = var.enable_nonprod_dynamic_routing && var.enable_nonprod_vpn ? 1 : 0
+  project = var.nonprod_shared_vpc_host_project_id
+  name    = "nonprod-test-interface"
+  router  = google_compute_router.nonprod_peering_router[0].name
+  region  = "us-central1"
+
   ip_range   = var.nonprod_test_ip_range
   vpn_tunnel = google_compute_vpn_tunnel.nonprod_test_tunnels[0].self_link
 }
 
 resource "google_compute_router_peer" "nonprod_test_peer" {
-  count     = var.enable_nonprod_dynamic_routing && var.enable_nonprod_vpn ? 1 : 0
-  project   = var.nonprod_shared_vpc_host_project_id
-  name      = "nonprod-test-peer"
-  router    = google_compute_router.nonprod_peering_router[0].name
-  region    = "us-central1"
-  
+  count   = var.enable_nonprod_dynamic_routing && var.enable_nonprod_vpn ? 1 : 0
+  project = var.nonprod_shared_vpc_host_project_id
+  name    = "nonprod-test-peer"
+  router  = google_compute_router.nonprod_peering_router[0].name
+  region  = "us-central1"
+
   interface                 = google_compute_router_interface.nonprod_test_interface[0].name
-  peer_ip_address          = var.nonprod_test_bgp_peer_ip
-  peer_asn                 = var.nonprod_test_bgp_asn
+  peer_ip_address           = var.nonprod_test_bgp_peer_ip
+  peer_asn                  = var.nonprod_test_bgp_asn
   advertised_route_priority = 100
 }
 
@@ -140,7 +140,7 @@ resource "google_network_connectivity_hub" "nonprod_test_hub" {
   project     = var.nonprod_shared_vpc_host_project_id
   name        = "nonprod-test-connectivity-hub"
   description = "Non-production network connectivity hub for testing"
-  
+
   labels = {
     environment = "non-production"
     managed-by  = "terraform"
@@ -151,18 +151,18 @@ resource "google_network_connectivity_hub" "nonprod_test_hub" {
 # Development spoke attachments
 resource "google_network_connectivity_spoke" "nonprod_test_spokes" {
   for_each = var.enable_nonprod_connectivity_center ? var.nonprod_test_spokes : {}
-  
+
   project     = var.nonprod_shared_vpc_host_project_id
   name        = "nonprod-spoke-${each.key}"
   location    = each.value.region
   description = "Non-production spoke for ${each.key}"
-  
+
   hub = google_network_connectivity_hub.nonprod_test_hub[0].id
-  
+
   linked_vpc_network {
     uri = each.value.vpc_network_uri
   }
-  
+
   labels = {
     environment = "non-production"
     region      = each.key
@@ -194,16 +194,16 @@ resource "google_compute_global_forwarding_rule" "nonprod_psc_google_apis" {
 # Non-production Service Connect for testing partner integrations
 resource "google_compute_service_attachment" "nonprod_test_services" {
   for_each = var.nonprod_test_service_attachments
-  
+
   project     = var.nonprod_shared_vpc_host_project_id
   name        = "nonprod-${each.key}-service-attachment"
   region      = each.value.region
   description = "Non-production service attachment for testing ${each.key}"
-  
-  target_service          = each.value.target_service
-  connection_preference   = "ACCEPT_AUTOMATIC"  # Automatic for easier testing
-  nat_subnets            = each.value.nat_subnets
-  enable_proxy_protocol  = false  # Simplified for testing
+
+  target_service        = each.value.target_service
+  connection_preference = "ACCEPT_AUTOMATIC" # Automatic for easier testing
+  nat_subnets           = each.value.nat_subnets
+  enable_proxy_protocol = false # Simplified for testing
 }
 
 # Development load balancer for testing
@@ -219,14 +219,14 @@ resource "google_compute_global_address" "nonprod_test_lb_ip" {
 # Sandbox environment peering for isolated testing
 resource "google_compute_network_peering" "sandbox_peering" {
   for_each = var.sandbox_networks
-  
+
   name         = "sandbox-${each.key}-peering"
   network      = data.google_compute_network.nonprod_vpc.self_link
   peer_network = each.value.network_self_link
 
-  auto_create_routes                = true
-  import_custom_routes              = false
-  export_custom_routes              = false
+  auto_create_routes                  = true
+  import_custom_routes                = false
+  export_custom_routes                = false
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
 }
@@ -234,14 +234,14 @@ resource "google_compute_network_peering" "sandbox_peering" {
 # Cross-project peering for multi-project testing scenarios
 resource "google_compute_network_peering" "nonprod_cross_project_peering" {
   for_each = var.nonprod_cross_project_networks
-  
+
   name         = "nonprod-${each.key}-cross-project-peering"
   network      = data.google_compute_network.nonprod_vpc.self_link
   peer_network = each.value.network_self_link
 
-  auto_create_routes                = each.value.auto_create_routes
-  import_custom_routes              = each.value.import_custom_routes
-  export_custom_routes              = each.value.export_custom_routes
+  auto_create_routes                  = each.value.auto_create_routes
+  import_custom_routes                = each.value.import_custom_routes
+  export_custom_routes                = each.value.export_custom_routes
   import_subnet_routes_with_public_ip = each.value.import_subnet_routes_with_public_ip
   export_subnet_routes_with_public_ip = each.value.export_subnet_routes_with_public_ip
 }
@@ -272,7 +272,7 @@ resource "google_compute_firewall" "nonprod_allow_peering_traffic" {
 # Temporary firewall rules for feature testing
 resource "google_compute_firewall" "nonprod_temporary_access" {
   for_each = var.nonprod_temporary_firewall_rules
-  
+
   project = var.nonprod_shared_vpc_host_project_id
   name    = "nonprod-temp-${each.key}"
   network = data.google_compute_network.nonprod_vpc.id

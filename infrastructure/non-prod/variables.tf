@@ -794,9 +794,9 @@ variable "temporary_test_attachments" {
   description = "Map of temporary test attachment configurations"
   type = map(object({
     availability_domain = number
-    bandwidth          = string
-    candidate_subnets  = list(string)
-    vlan_tag          = number
+    bandwidth           = string
+    candidate_subnets   = list(string)
+    vlan_tag            = number
   }))
   default = {}
 }
@@ -829,10 +829,10 @@ variable "experimental_interconnect_configs" {
   description = "Map of experimental interconnect configurations for R&D"
   type = map(object({
     availability_domain = number
-    admin_enabled      = bool
-    bandwidth          = string
-    candidate_subnets  = list(string)
-    vlan_tag          = number
+    admin_enabled       = bool
+    bandwidth           = string
+    candidate_subnets   = list(string)
+    vlan_tag            = number
   }))
   default = {}
 }

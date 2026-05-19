@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars for local runs — gitignored, never commit.
+# ci.auto.tfvars supplies the non-sensitive values automatically.
+
+billing_account_id = "TODO"   # e.g. ABCDEF-GHIJKL-MNOPQR

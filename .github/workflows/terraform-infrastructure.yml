@@ -1,0 +1,183 @@
+name: Terraform — infrastructure
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infrastructure/**"
+      - "modules/**"
+      - ".github/workflows/terraform-infrastructure.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/**"
+      - "modules/**"
+      - ".github/workflows/terraform-infrastructure.yml"
+
+env:
+  TF_NONPROD: infrastructure/nonprod
+  TF_PROD: infrastructure/prod
+
+jobs:
+  fmt:
+    name: Format check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: terraform fmt (modules)
+        run: terraform fmt -check -recursive
+        working-directory: modules
+
+      - name: terraform fmt (infrastructure)
+        run: terraform fmt -check -recursive
+        working-directory: infrastructure
+
+  validate-nonprod:
+    name: Validate nonprod
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.TF_INFRA_SA }}
+
+      - name: Write CI sensitive vars
+        run: |
+          cat > /tmp/ci-sensitive.tfvars << EOF
+          billing_account_id = "${{ vars.BILLING_ACCOUNT_ID }}"
+          EOF
+
+      - name: terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_NONPROD }}
+
+      - name: terraform validate
+        run: terraform validate
+        working-directory: ${{ env.TF_NONPROD }}
+
+  plan-nonprod:
+    name: Plan nonprod
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    needs: [fmt, validate-nonprod]
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.TF_INFRA_SA }}
+
+      - name: Write CI sensitive vars
+        run: |
+          cat > /tmp/ci-sensitive.tfvars << EOF
+          billing_account_id = "${{ vars.BILLING_ACCOUNT_ID }}"
+          EOF
+
+      - name: terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_NONPROD }}
+
+      - name: terraform plan
+        id: plan
+        run: |
+          terraform plan -var-file=/tmp/ci-sensitive.tfvars -no-color -out=tfplan 2>&1 | tee /tmp/plan-nonprod.txt
+          exit ${PIPESTATUS[0]}
+        working-directory: ${{ env.TF_NONPROD }}
+
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync('/tmp/plan-nonprod.txt', 'utf8');
+            const plan = raw.length > 60000
+              ? raw.slice(0, 60000) + '\n\n[...output truncated — see Actions log for full plan]'
+              : raw;
+            const outcome = '${{ steps.plan.outcome }}';
+            const icon = outcome === 'success' ? '✅' : '❌';
+            const body = [
+              `#### ${icon} Terraform Plan \`${outcome}\` — infrastructure/nonprod`,
+              ``,
+              `<details><summary>Show Plan</summary>`,
+              ``,
+              '```hcl',
+              plan,
+              '```',
+              `</details>`,
+              ``,
+              `*Triggered by @${{ github.actor }} on \`${{ github.event_name }}\`*`,
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+  apply-nonprod:
+    name: Apply nonprod
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    needs: [fmt, validate-nonprod]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.TF_INFRA_SA }}
+
+      - name: Write CI sensitive vars
+        run: |
+          cat > /tmp/ci-sensitive.tfvars << EOF
+          billing_account_id = "${{ vars.BILLING_ACCOUNT_ID }}"
+          EOF
+
+      - name: terraform init
+        run: terraform init
+        working-directory: ${{ env.TF_NONPROD }}
+
+      - name: terraform plan
+        run: terraform plan -var-file=/tmp/ci-sensitive.tfvars -out=tfplan
+        working-directory: ${{ env.TF_NONPROD }}
+
+      - name: terraform apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_NONPROD }}
