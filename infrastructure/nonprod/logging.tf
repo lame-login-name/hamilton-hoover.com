@@ -1,6 +1,6 @@
 # Centralized logging project for nonprod.
 # Receives org-level audit logs via a log sink. BigQuery is the destination —
-# partitioned tables with 30-day expiry keep storage costs near zero.
+# partitioned tables with short-cycle expiry (default: 7 days) keep storage costs near zero.
 #
 # Scope: this sink captures ALL org audit logs (including prod) during the
 # nonprod build phase. A dedicated prod sink is added in infrastructure/prod/
@@ -30,7 +30,7 @@ resource "google_bigquery_dataset" "audit_logs" {
   location   = "US"
 
   friendly_name = "Audit Logs — Nonprod"
-  description   = "Org-level audit logs from Cloud Logging. Partitioned, 30-day retention."
+  description   = "Org-level audit logs from Cloud Logging. Partitioned tables, configurable short-cycle retention (default: 7 days)."
 
   # Partition expiry — each day's partition is dropped after this window.
   # Belt-and-suspenders: table expiry catches any non-partitioned tables the sink creates.
@@ -60,30 +60,30 @@ resource "google_logging_organization_sink" "audit" {
 
   destination = "bigquery.googleapis.com/projects/${module.logging_project.project_id}/datasets/${google_bigquery_dataset.audit_logs.dataset_id}"
 
-  # Inclusion filter — only export high-signal, low-volume audit logs.
+  # Inclusion filter — Admin Activity and Policy Denied only.
   #
-  # Always included:
-  #   - Admin Activity (IAM changes, resource creates/deletes/updates)
-  #   - Policy violations (org policy denials)
+  # Admin Activity: IAM grants/revokes, resource creates/updates/deletes,
+  #   org/billing config changes. Always-on in every GCP project, free to
+  #   generate, and very low volume — only fires when Terraform runs or
+  #   someone acts in the console.
   #
-  # Data Access included but with noisy method calls stripped:
-  #   - storage.objects.get/list/watch — very high volume, low signal at org level
-  #   - compute serial port reads — chatty metadata polling
-  #   - monitoring timeSeries reads — continuous polling by dashboards
+  # Policy Denied: org policy rejections. Low volume, high signal.
   #
-  # Excluded entirely:
-  #   - VPC flow logs, LB access logs, Cloud Run request logs — belong at project level
+  # Data Access intentionally excluded:
+  #   - Must be explicitly enabled per-service in the org audit config;
+  #     it is NOT enabled here, so this log_id produces zero rows today.
+  #   - When enabled for any service the volume can be enormous — every
+  #     API read/list/get call generates an entry (e.g. BQ enables it for
+  #     itself by default, GCS reads, monitoring polls, etc.).
+  #   - Including it with a denylist of noisy methods is fragile: one new
+  #     chatty service blows through any storage budget. Excluding entirely
+  #     is the only safe default for a personal org.
+  #
+  # Anything else (VPC flow logs, LB access logs, Cloud Run request logs,
+  # system events) is excluded by omission — it never matches this filter.
   filter = <<-EOT
-    (
-      log_id("cloudaudit.googleapis.com/activity")
-      OR log_id("cloudaudit.googleapis.com/policy_denied")
-      OR (
-        log_id("cloudaudit.googleapis.com/data_access")
-        AND NOT protoPayload.methodName=~"storage\.objects\.(get|list|watch|head)"
-        AND NOT protoPayload.methodName="compute.instances.getSerialPortOutput"
-        AND NOT protoPayload.methodName=~"monitoring\.timeSeries\.(list|query)"
-      )
-    )
+    log_id("cloudaudit.googleapis.com/activity")
+    OR log_id("cloudaudit.googleapis.com/policy_denied")
   EOT
 
   bigquery_options {
