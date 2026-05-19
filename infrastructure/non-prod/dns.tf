@@ -16,7 +16,7 @@ resource "google_dns_managed_zone" "dev_zone" {
 
     default_key_specs {
       algorithm  = "rsasha256"
-      key_length = 1024  # Smaller keys for dev environment
+      key_length = 1024 # Smaller keys for dev environment
       key_type   = "keySigning"
     }
 
@@ -90,7 +90,7 @@ resource "google_dns_record_set" "dev_main_a_record" {
   managed_zone = google_dns_managed_zone.dev_zone.name
   name         = var.dev_domain_name
   type         = "A"
-  ttl          = 60  # Short TTL for rapid iteration
+  ttl          = 60 # Short TTL for rapid iteration
   rrdatas      = var.dev_domain_ip_addresses
 }
 
@@ -259,7 +259,7 @@ resource "google_dns_response_policy" "nonprod_testing_policy" {
 resource "google_dns_response_policy_rule" "nonprod_test_overrides" {
   for_each = var.enable_nonprod_response_policy ? var.nonprod_test_overrides : {}
   project  = var.nonprod_dns_project_id
-  
+
   response_policy = google_dns_response_policy.nonprod_testing_policy[0].name
   rule_name       = "nonprod-override-${replace(each.key, ".", "-")}"
   dns_name        = each.key

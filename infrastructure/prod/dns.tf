@@ -100,13 +100,13 @@ resource "google_dns_record_set" "prod_main_a_record" {
     for_each = var.enable_prod_dns_health_checking ? [1] : []
     content {
       enable_geo_fencing = false
-      
+
       dynamic "wrr" {
         for_each = var.prod_main_domain_ip_addresses
         content {
           weight  = 1.0 / length(var.prod_main_domain_ip_addresses)
           rrdatas = [wrr.value]
-          
+
           health_checked_targets {
             internal_load_balancers {
               load_balancer_type = "globalL7ilb"
@@ -140,7 +140,7 @@ resource "google_dns_record_set" "prod_api_a_record" {
   managed_zone = google_dns_managed_zone.prod_api_zone[0].name
   name         = var.prod_api_domain_name
   type         = "A"
-  ttl          = 60  # Lower TTL for API services
+  ttl          = 60 # Lower TTL for API services
   rrdatas      = var.prod_api_gateway_ip_addresses
 }
 
@@ -265,7 +265,7 @@ resource "google_dns_response_policy" "prod_security_policy" {
 resource "google_dns_response_policy_rule" "prod_block_malicious" {
   for_each = toset(var.prod_blocked_domains)
   project  = var.prod_dns_project_id
-  
+
   response_policy = google_dns_response_policy.prod_security_policy.name
   rule_name       = "prod-block-${replace(each.value, ".", "-")}"
   dns_name        = each.value
@@ -284,7 +284,7 @@ resource "google_dns_response_policy_rule" "prod_block_malicious" {
 resource "google_dns_response_policy_rule" "prod_monitor_suspicious" {
   for_each = toset(var.prod_monitored_domains)
   project  = var.prod_dns_project_id
-  
+
   response_policy = google_dns_response_policy.prod_security_policy.name
   rule_name       = "prod-monitor-${replace(each.value, ".", "-")}"
   dns_name        = each.value

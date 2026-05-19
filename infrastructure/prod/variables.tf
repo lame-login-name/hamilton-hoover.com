@@ -441,9 +441,9 @@ variable "enable_prod_private_google_access" {
 variable "prod_partner_service_attachments" {
   description = "Map of production partner service attachment configurations"
   type = map(object({
-    region                 = string
-    target_service        = string
-    nat_subnets           = list(string)
+    region         = string
+    target_service = string
+    nat_subnets    = list(string)
     consumer_accept_lists = list(object({
       project_id       = string
       connection_limit = number
@@ -807,7 +807,7 @@ variable "prod_partner_advertised_ranges" {
 variable "prod_interconnect_bandwidth_threshold" {
   description = "Bandwidth utilization threshold for production interconnect alerts (bytes per second)"
   type        = number
-  default     = 8000000000  # 8 Gbps
+  default     = 8000000000 # 8 Gbps
 }
 
 variable "enable_prod_interconnect_slo" {

@@ -15,11 +15,11 @@ resource "google_compute_network_peering" "prod_partner_peering" {
   network      = data.google_compute_network.prod_vpc.self_link
   peer_network = var.prod_partner_network_self_link
 
-  auto_create_routes                = false  # Manual route control for production
-  import_custom_routes              = var.prod_import_partner_routes
-  export_custom_routes              = var.prod_export_custom_routes
-  import_subnet_routes_with_public_ip = false  # Security best practice
-  export_subnet_routes_with_public_ip = false  # Security best practice
+  auto_create_routes                  = false # Manual route control for production
+  import_custom_routes                = var.prod_import_partner_routes
+  export_custom_routes                = var.prod_export_custom_routes
+  import_subnet_routes_with_public_ip = false # Security best practice
+  export_subnet_routes_with_public_ip = false # Security best practice
 
   depends_on = [
     google_compute_network_peering_routes_config.prod_partner_routes_config
@@ -111,21 +111,21 @@ resource "google_compute_external_vpn_gateway" "prod_onprem_gateway" {
 
 # Production VPN tunnels with enhanced security
 resource "google_compute_vpn_tunnel" "prod_onprem_tunnels" {
-  count     = var.enable_prod_vpn_backup ? length(var.prod_onprem_vpn_interfaces) : 0
-  project   = var.prod_shared_vpc_host_project_id
-  name      = "prod-onprem-tunnel-${count.index}"
-  region    = "us-central1"
-  
-  vpn_gateway           = google_compute_ha_vpn_gateway.prod_vpn_gateway_us_central1[0].id
-  vpn_gateway_interface = count.index
-  peer_external_gateway = google_compute_external_vpn_gateway.prod_onprem_gateway[0].id
+  count   = var.enable_prod_vpn_backup ? length(var.prod_onprem_vpn_interfaces) : 0
+  project = var.prod_shared_vpc_host_project_id
+  name    = "prod-onprem-tunnel-${count.index}"
+  region  = "us-central1"
+
+  vpn_gateway                     = google_compute_ha_vpn_gateway.prod_vpn_gateway_us_central1[0].id
+  vpn_gateway_interface           = count.index
+  peer_external_gateway           = google_compute_external_vpn_gateway.prod_onprem_gateway[0].id
   peer_external_gateway_interface = count.index
-  
+
   shared_secret = var.prod_vpn_shared_secrets[count.index]
   router        = var.enable_prod_dynamic_routing ? google_compute_router.prod_peering_router_us_central1[0].name : null
-  
+
   ike_version = 2
-  
+
   # Enhanced security settings for production
   local_traffic_selector  = var.prod_vpn_local_traffic_selector
   remote_traffic_selector = var.prod_vpn_remote_traffic_selector
@@ -133,31 +133,31 @@ resource "google_compute_vpn_tunnel" "prod_onprem_tunnels" {
 
 # BGP sessions for production interconnect
 resource "google_compute_router_interface" "prod_interconnect_interface_us_central1" {
-  count      = var.enable_prod_dynamic_routing && var.enable_prod_vpn_backup ? 1 : 0
-  project    = var.prod_shared_vpc_host_project_id
-  name       = "prod-interconnect-interface-us-central1"
-  router     = google_compute_router.prod_peering_router_us_central1[0].name
-  region     = "us-central1"
-  
+  count   = var.enable_prod_dynamic_routing && var.enable_prod_vpn_backup ? 1 : 0
+  project = var.prod_shared_vpc_host_project_id
+  name    = "prod-interconnect-interface-us-central1"
+  router  = google_compute_router.prod_peering_router_us_central1[0].name
+  region  = "us-central1"
+
   ip_range   = var.prod_interconnect_ip_range_us_central1
   vpn_tunnel = google_compute_vpn_tunnel.prod_onprem_tunnels[0].self_link
 }
 
 resource "google_compute_router_peer" "prod_interconnect_peer_us_central1" {
-  count     = var.enable_prod_dynamic_routing && var.enable_prod_vpn_backup ? 1 : 0
-  project   = var.prod_shared_vpc_host_project_id
-  name      = "prod-interconnect-peer-us-central1"
-  router    = google_compute_router.prod_peering_router_us_central1[0].name
-  region    = "us-central1"
-  
+  count   = var.enable_prod_dynamic_routing && var.enable_prod_vpn_backup ? 1 : 0
+  project = var.prod_shared_vpc_host_project_id
+  name    = "prod-interconnect-peer-us-central1"
+  router  = google_compute_router.prod_peering_router_us_central1[0].name
+  region  = "us-central1"
+
   interface                 = google_compute_router_interface.prod_interconnect_interface_us_central1[0].name
-  peer_ip_address          = var.prod_onprem_bgp_peer_ip
-  peer_asn                 = var.prod_onprem_bgp_asn
+  peer_ip_address           = var.prod_onprem_bgp_peer_ip
+  peer_asn                  = var.prod_onprem_bgp_asn
   advertised_route_priority = 100
-  
+
   # Enhanced BGP settings for production
   enable_ipv6 = var.prod_enable_ipv6_bgp
-  
+
   dynamic "advertised_ip_ranges" {
     for_each = var.prod_bgp_advertised_ip_ranges
     content {
@@ -173,7 +173,7 @@ resource "google_network_connectivity_hub" "prod_main_hub" {
   project     = var.prod_shared_vpc_host_project_id
   name        = "prod-main-connectivity-hub"
   description = "Production network connectivity hub for centralized management"
-  
+
   labels = {
     environment = "production"
     managed-by  = "terraform"
@@ -184,18 +184,18 @@ resource "google_network_connectivity_hub" "prod_main_hub" {
 # Production spoke attachments for regional networks
 resource "google_network_connectivity_spoke" "prod_regional_spokes" {
   for_each = var.enable_prod_connectivity_center ? var.prod_regional_spokes : {}
-  
+
   project     = var.prod_shared_vpc_host_project_id
   name        = "prod-spoke-${each.key}"
   location    = each.value.region
   description = "Production spoke for ${each.key} region"
-  
+
   hub = google_network_connectivity_hub.prod_main_hub[0].id
-  
+
   linked_vpc_network {
     uri = each.value.vpc_network_uri
   }
-  
+
   labels = {
     environment = "production"
     region      = each.key
@@ -227,19 +227,19 @@ resource "google_compute_global_forwarding_rule" "prod_psc_google_apis" {
 # Production Service Connect for partner services
 resource "google_compute_service_attachment" "prod_partner_services" {
   for_each = var.prod_partner_service_attachments
-  
+
   project     = var.prod_shared_vpc_host_project_id
   name        = "prod-${each.key}-service-attachment"
   region      = each.value.region
   description = "Production service attachment for ${each.key}"
-  
-  target_service          = each.value.target_service
-  connection_preference   = "ACCEPT_MANUAL"
-  nat_subnets            = each.value.nat_subnets
-  enable_proxy_protocol  = true
-  
+
+  target_service        = each.value.target_service
+  connection_preference = "ACCEPT_MANUAL"
+  nat_subnets           = each.value.nat_subnets
+  enable_proxy_protocol = true
+
   consumer_reject_lists = var.prod_service_consumer_reject_lists
-  
+
   dynamic "consumer_accept_lists" {
     for_each = each.value.consumer_accept_lists
     content {
@@ -265,25 +265,25 @@ resource "google_monitoring_alert_policy" "prod_vpn_tunnel_state" {
   project      = var.prod_shared_vpc_host_project_id
   display_name = "Production VPN Tunnel State Alert"
   combiner     = "OR"
-  
+
   conditions {
     display_name = "VPN tunnel down"
-    
+
     condition_threshold {
       filter          = "resource.type=\"vpn_gateway\" AND metric.type=\"compute.googleapis.com/vpn/tunnel_established\""
       duration        = "300s"
       comparison      = "COMPARISON_EQUAL"
       threshold_value = 0
-      
+
       aggregations {
         alignment_period   = "60s"
         per_series_aligner = "ALIGN_MEAN"
       }
     }
   }
-  
+
   notification_channels = var.prod_notification_channels
-  
+
   alert_strategy {
     auto_close = "1800s"
   }
