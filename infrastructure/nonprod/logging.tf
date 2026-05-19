@@ -40,6 +40,11 @@ resource "google_bigquery_dataset" "audit_logs" {
   # Safety guard: a tf destroy should not silently drop audit history
   delete_contents_on_destroy = false
 
+  # Wait for the full module (including bigquery.googleapis.com API enablement)
+  # before creating the dataset. Without this Terraform parallelises the dataset
+  # creation with the API activation and races to a 400.
+  depends_on = [module.logging_project]
+
   labels = {
     env        = "nonprod"
     purpose    = "audit-logging"
