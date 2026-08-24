@@ -1,100 +1,100 @@
 # Personal & Professional GCP GitOps Platform
 
-This document is a step-by-step build guide for creating a personal and professional Google Cloud Platform (GCP) Organization that serves as a real-world cloud architecture showcase.
+This is my build guide for the GCP organization behind hamilton-hoover.com. It doubles as a working showcase of how I'd architect a cloud platform when nobody is constraining the design.
 
-The goal is not demos. The goal is a governed, automated, low-cost cloud platform that proves you know how to design, operate, and evolve real systems.
+What I'm after is a governed, automated, low-cost platform that holds up under scrutiny. Anyone can stand up a demo. The interesting part is whether the thing can be operated and changed over time without falling apart.
 
 ⸻
 
 ## Guiding Principles
-	•	Everything is managed by code (Terraform-first)
-	•	GitHub is the source of truth
-	•	CI/CD enforces correctness, not speed
-	•	Cost discipline is a feature, not an afterthought
-	•	No clickops beyond initial bootstrap and emergency access
 
-If something cannot be recreated from Git, it does not belong.
+- Everything is managed by code, Terraform first
+- GitHub is the source of truth
+- CI/CD is there to enforce correctness, even when that costs me speed
+- Cost discipline gets designed in rather than bolted on
+- No clickops past the initial bootstrap and emergency access
+
+If something can't be recreated from Git, it doesn't belong here.
 
 ⸻
 
 ## Prerequisites (Already Satisfied)
 
-You already have:
-	•	A Google Cloud Organization
-	•	A billing account attached to the org
-	•	A custom domain
-	•	Cloud DNS hosting your domain
-	•	A GitHub account
+This guide assumes the following are already in place:
 
-This guide assumes those are in place and focuses on what to build next.
+- A Google Cloud Organization
+- A billing account attached to the org
+- A custom domain
+- Cloud DNS hosting that domain
+- A GitHub account
+
+Everything below is about what to build on top of that.
 
 ⸻
 
 ## Phase 1: Foundation & Guardrails ✅ Complete
 
-### Phase 1 Exit Criteria (So you know you’re “done”)
+### Phase 1 Exit Criteria
 
 - ✅ Folder hierarchy exists via Terraform
 - ✅ Terraform remote state bucket exists, is locked down, and has versioning
-- ✅ GitHub Actions can run plan and apply using Workload Identity Federation (no long-lived keys)
-- ✅ A minimal baseline of org/folder policies is enforced
-- ✅ Budgets/alerts exist (even small) to prevent surprise spend
+- ✅ GitHub Actions can run plan and apply using Workload Identity Federation, no long-lived keys
+- ✅ A minimal baseline of org and folder policies is enforced
+- ✅ Budgets and alerts exist, even small ones, to catch surprise spend
 
-Keep this phase boring. Boring is the point.
+There's nothing clever in this phase and there shouldn't be. It's the layer everything else inherits from.
 
 ### 1.1 Organization Folder Structure
 
-Create the following folder hierarchy:
-	•	platform
-	•	shared-services
-	•	nonprod
-	•	prod
-	•	sandbox
+Folder hierarchy:
 
-Purpose:
-	•	Folder-level policy inheritance
-	•	Clear blast-radius boundaries
-	•	Cost and access separation
+- platform
+- shared-services
+- nonprod
+- prod
+- sandbox
 
-Do not create projects manually except a single temporary bootstrap project.
+This buys three things: folder-level policy inheritance, clear blast-radius boundaries, and separation for cost and access.
+
+No manual project creation except the one temporary bootstrap project below.
 
 ⸻
 
 ### 1.2 Bootstrap Project (Temporary)
 
-Create one project manually:
-	•	Name: hh-org-domainhost
-	•	Purpose: Run Terraform against the org
-	•	Billing: Attached
+One project, created by hand:
 
-Create only what you need here:
-	•	A Terraform state bucket (or a separate state project later)
-	•	A small set of CI/CD service accounts (or none if you use WIF + impersonation)
+- Name: hh-org-domainhost
+- Purpose: run Terraform against the org
+- Billing: attached
 
-Later, this project can be locked down or deprecated.
+Only what's needed lives here:
 
-Rule: If you catch yourself enabling random APIs in this project, you’re drifting.
+- A Terraform state bucket, or a separate state project later
+- A small set of CI/CD service accounts, or none if using WIF plus impersonation
+
+Eventually this project gets locked down or retired. If I find myself enabling random APIs in it, that's a sign the scope is drifting.
 
 ⸻
 
 ### 1.3 Terraform State Strategy
 
-Initial state:
-	•	Remote backend using a GCS bucket
-	•	Bucket created manually once
+Remote backend on a GCS bucket, created manually once.
 
 Bucket requirements:
-	•	Uniform bucket-level access
-	•	Versioning enabled
-	•	Public access prevention enforced
-	•	Retention policy (optional but nice)
-	•	Restricted IAM: only CI identity + break-glass human
 
-This is your state crown jewel.
+- Uniform bucket-level access
+- Versioning enabled
+- Public access prevention enforced
+- Retention policy, optional but worth having
+- Restricted IAM: CI identity plus a break-glass human, nothing else
 
-Recommended state layout (pragmatic):
-	•	Separate state prefixes per repo (e.g., org-bootstrap/, org-policies/, platform-foundation/)
-	•	Keep state in one bucket at first; split later only if you have a reason
+State is the one thing in this setup I can't afford to lose or leak, so the IAM on that bucket stays tighter than anywhere else.
+
+State layout:
+
+- Separate state prefixes per layer, for example `org-bootstrap/`, `org-policies/`, `platform-foundation/`
+- One bucket to start. Split later only with a concrete reason.
 
 ⸻
 
@@ -102,58 +102,62 @@ Recommended state layout (pragmatic):
 
 ### Authentication ✅ Done
 
-Implemented: Workload Identity Federation (WIF) from GitHub Actions to GCP, impersonating `tf-org` service account. No long-lived keys. Managed in `bootstrap/wif.tf`.
+Workload Identity Federation from GitHub Actions to GCP, impersonating the `tf-org` service account. No long-lived keys. Managed in `bootstrap/wif.tf`.
 
-	•	No JSON keys stored in GitHub
-	•	Short-lived tokens
-	•	Clear separation between “plan” and “apply” permissions
-	•	Blast-radius isolation: each repo can only touch what it owns
+What this gets me:
 
-#### Recommended model (WIF + SA impersonation)
+- No JSON keys sitting in GitHub
+- Short-lived tokens
+- A real separation between plan and apply permissions
+- Blast-radius isolation, since each identity can only touch what it owns
 
-- GitHub Actions authenticates via WIF to a GCP Workload Identity Pool/Provider.
-- The GitHub identity is granted `roles/iam.workloadIdentityUser` on a repo-specific Terraform service account.
+#### The model (WIF + SA impersonation)
+
+- GitHub Actions authenticates via WIF to a GCP Workload Identity Pool and Provider.
+- The GitHub identity gets `roles/iam.workloadIdentityUser` on a scoped Terraform service account.
 - Workflows impersonate that service account for Terraform runs.
 
-Naming convention (example):
+Naming convention:
+
 - `tf-org-bootstrap@org-bootstrap.iam.gserviceaccount.com`
 - `tf-org-policies@org-bootstrap.iam.gserviceaccount.com`
 - `tf-platform-foundation@org-bootstrap.iam.gserviceaccount.com`
 
-#### Minimum permissions strategy (recommended)
+#### Permissions strategy
 
-- **Plan job** uses the same repo SA but should be limited to read-only where possible (or enforced by workflow protections).
-- **Apply job** runs only from protected branches/environments and uses the repo SA with the narrowest admin permissions that still allow its scope.
+- The plan job uses the same SA but stays read-only wherever possible, or is constrained by workflow protections.
+- The apply job runs only from protected branches and environments, with the narrowest admin permissions that still cover its scope.
 
-Practical controls:
-- Use GitHub Environments (e.g., `apply`) with required reviewers.
-- Protect `main` branch.
-- Prefer folder/project-scoped roles over org-wide roles.
+Supporting controls:
 
-If you use a single broad “terraform-admin” identity, you’re building a demo, not a platform.
+- GitHub Environments (`apply`) with required reviewers
+- Branch protection on `main`
+- Folder and project-scoped roles in preference to org-wide ones
+
+A single broad terraform-admin identity would make all of the above decorative, which is why the split exists.
 
 ### 2.1 GitHub Organization ✅
 
-Using `lame-login-name` GitHub org with `hamilton-hoover.com` as the single monorepo.
-Directories (`bootstrap/`, `org/`, etc.) serve the single-responsibility role that
-separate repos would in a larger org. Simpler at this scale; split if needed later.
+Using the `lame-login-name` GitHub org with `hamilton-hoover.com` as a single monorepo. Directories (`bootstrap/`, `org/`, and so on) carry the single-responsibility role that separate repos would in a larger organization. That's simpler at this scale, and splitting later is straightforward if it stops being true.
 
 ### 2.2 Core Repositories ✅
 
-Monorepo layout chosen over multi-repo. Layers:
-- `bootstrap/` — WIF, service accounts (applied manually, rarely changes)
-- `org/` — org structure, policies, IAM, budgets (CI-managed)
-- Future: `infrastructure/`, `projects/`, `modules/` within same repo
+Monorepo over multi-repo. Layers:
+
+- `bootstrap/`: WIF, service accounts. Applied manually, rarely changes.
+- `org/`: org structure, policies, IAM, budgets. CI-managed.
+- Future: `infrastructure/`, `projects/`, `modules/` in the same repo
 
 ### 2.3 GitHub Actions Baseline ✅
 
-`.github/workflows/terraform-org.yml` implements:
-- `terraform fmt -check` on every PR
-- `terraform validate` (WIF auth, no keys)
-- `terraform plan` posted as PR comment
-- `terraform apply` on merge to `main`, gated by `apply` environment (required reviewer)
+`.github/workflows/terraform-org.yml` runs:
 
-Fork PRs blocked from CI runs via `github.event.pull_request.head.repo.full_name` guard.
+- `terraform fmt -check` on every PR
+- `terraform validate` with WIF auth, no keys
+- `terraform plan` posted as a PR comment
+- `terraform apply` on merge to `main`, gated by the `apply` environment with a required reviewer
+
+Fork PRs are blocked from CI runs via a `github.event.pull_request.head.repo.full_name` guard.
 
 ⸻
 
@@ -161,20 +165,19 @@ Fork PRs blocked from CI runs via `github.event.pull_request.head.repo.full_name
 
 ### 3.1 bootstrap/ ✅
 
-Manages: WIF pool/provider, `tf-org` service account, org-level roles for CI SA,
-GCS state bucket IAM. Applied manually — changes here are rare.
+Manages the WIF pool and provider, the `tf-org` service account, org-level roles for the CI service account, and state bucket IAM. Applied manually. Changes here are rare by design.
 
 ### 3.2 org/ ✅
 
-Manages: folder hierarchy, 9 org policies (OrgPolicy v2), org-level IAM,
-3 billing budgets, and Data Access audit logging. CI-managed via GitHub Actions.
+Manages the folder hierarchy, 9 org policies (OrgPolicy v2), org-level IAM, 3 billing budgets, and Data Access audit logging. CI-managed through GitHub Actions.
 
-Perimeter baseline enforced:
+Perimeter baseline in place:
+
 - No default VPC, no external IPs, no public Cloud SQL
-- No SA key creation (WIF required)
-- Uniform bucket access + public access prevention
+- No service account key creation, which forces WIF
+- Uniform bucket access plus public access prevention
 - US-only resource locations
-- IAM restricted to Cloud Identity tenant (`iam.allowedPolicyMemberDomains`)
+- IAM restricted to the Cloud Identity tenant (`iam.allowedPolicyMemberDomains`)
 - ADMIN_READ / DATA_READ / DATA_WRITE audit logs on all services
 
 ⸻
@@ -183,106 +186,88 @@ Perimeter baseline enforced:
 
 ### 4.1 Project Factory Pattern
 
-Create a reusable Terraform module that:
-	•	Creates projects
-	•	Attaches billing
-	•	Enables required APIs
-	•	Applies baseline IAM
-	•	Adds labels automatically
+A reusable Terraform module that creates projects, attaches billing, enables required APIs, applies baseline IAM, and adds labels automatically.
 
-This module is your platform contract.
+This module ends up being the contract between the platform and anything built on it, so it's worth getting right before there are consumers.
 
 ### 4.2 Shared Services Projects
 
-Create projects for:
-	•	CI/CD support
-	•	Logging and monitoring
-	•	DNS integrations
-
-Keep services minimal and justified.
+Projects for CI/CD support, logging and monitoring, and DNS integrations. Each one needs a justification to exist.
 
 ⸻
 
 ## Phase 5: Showcase Workloads (Minimal but Real)
 
-Deploy 2–3 small, clean workloads:
+Two or three small, clean workloads. Candidates:
 
-Examples:
-	•	Cloud Run service
-	•	Event-driven function
-	•	Static site with HTTPS
+- Cloud Run service
+- Event-driven function
+- Static site with HTTPS
 
-Each workload must:
-	•	Live in its own project
-	•	Use least-privilege IAM
-	•	Be deployed via CI
-	•	Have clear cost expectations
+Each one has to live in its own project, use least-privilege IAM, deploy through CI, and come with a clear cost expectation.
 
-Avoid Kubernetes unless absolutely necessary.
+Kubernetes stays out unless something genuinely requires it. At this scale it's overhead without a payoff.
 
 ⸻
 
 ## Phase 6: Cost Controls & Safety Nets
 
-Implement early (even before workloads):
-	•	Folder-level budgets (small amounts are fine)
-	•	Alerting thresholds (50%, 80%, 100%)
-	•	Quota reductions in sandbox (where possible)
-	•	Sandbox auto-cleanup plan (design now, implement later)
+Worth doing before workloads exist, not after:
 
-Baseline labeling standard (enforce in Terraform modules):
-	•	env = prod | nonprod | sandbox | shared | platform
-	•	owner = your handle
-	•	purpose = short string
-	•	cost_center = personal
+- Folder-level budgets, small amounts are fine
+- Alerting thresholds at 50%, 80%, 100%
+- Quota reductions in sandbox where possible
+- A sandbox auto-cleanup plan, designed now and implemented later
 
-Cost visibility is part of the platform.
+Baseline labeling standard, enforced in the Terraform modules:
+
+- `env` = prod | nonprod | sandbox | shared | platform
+- `owner` = handle
+- `purpose` = short string
+- `cost_center` = personal
+
+Without labels the budget data is unusable, so labeling is part of the platform rather than a reporting afterthought.
 
 ⸻
 
 ## Phase 7: Documentation & Narrative
 
-Each repo README should explain:
-	•	What it manages
-	•	Why it exists
-	•	How changes flow to GCP
+Each layer's README should cover what it manages, why it exists, and how changes flow to GCP.
 
-Add a top-level document:
+Plus a top-level document on design decisions and tradeoffs:
 
-Design Decisions & Tradeoffs
+- What I chose
+- What I rejected
+- What would change at scale
 
-Include:
-	•	What you chose
-	•	What you rejected
-	•	What would change at scale
-
-This is architectural evidence.
+The rejected options tend to be the more interesting half.
 
 ⸻
 
 ## Operating Rules
-	•	No manual IAM changes
-	•	No manual project creation
-	•	No unmanaged resources
-	•	Drift is a bug
+
+- No manual IAM changes
+- No manual project creation
+- No unmanaged resources
+- Drift is a bug
 
 ⸻
 
 ## Expansion Paths (Later)
-	•	Identity federation
-	•	Policy-as-code evolution
-	•	Security posture automation
-	•	Multi-environment promotion
+
+- Identity federation
+- Policy-as-code evolution
+- Security posture automation
+- Multi-environment promotion
 
 ⸻
 
 ## Success Criteria
 
-You are done when:
-	•	The org can be rebuilt from Git
-	•	Costs are predictable and low
-	•	Governance is visible in code
-	•	The platform tells a clear story
+This is working when the org can be rebuilt from Git, costs stay predictable and low, governance is visible in code, and someone reading the repo can follow why it's built the way it is.
 
-This is not a demo cloud.
-This is a living system.
+⸻
+
+## A note on tooling
+
+I used Claude to help write and review a good portion of the Terraform and workflow code in this repo. The architecture, the policy decisions, and the layering are mine. Claude sped up the trip from design to working HCL and caught a few things in review. Worth stating outright rather than leaving it to be inferred.
