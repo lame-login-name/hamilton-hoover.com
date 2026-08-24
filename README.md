@@ -1,7 +1,8 @@
-# hamilton-hoover.com — GCP Organization Platform
+# hamilton-hoover.com: GCP Organization Platform
 
-Personal GCP organization managed entirely as code. No clickops beyond the initial bootstrap.
-Built as a real platform — governed, automated, and cost-disciplined — not a demo.
+My personal Google Cloud organization, managed as code. Aside from the initial bootstrap, nothing here was clicked together in the console.
+
+I built this because I wanted a place to run the same patterns I use professionally without a change advisory board in the way: org policy inheritance, Workload Identity Federation instead of service account keys, budgets wired up before any workload exists. It's small, but the structure is what I'd actually stand up at work.
 
 ## What's deployed
 
@@ -9,9 +10,9 @@ Built as a real platform — governed, automated, and cost-disciplined — not a
 |---|---|---|
 | WIF + CI service accounts | `bootstrap/` | Applied manually (once) |
 | Org structure, policies, IAM, budgets | `org/` | CI-managed |
-| Shared networking, DNS | `infrastructure/` | Planned — Phase 4 |
-| Project factory | `projects/` | Planned — Phase 4 |
-| Reusable modules | `modules/` | Planned — Phase 4 |
+| Shared networking, DNS | `infrastructure/` | Planned, Phase 4 |
+| Project factory | `projects/` | Planned, Phase 4 |
+| Reusable modules | `modules/` | Planned, Phase 4 |
 
 ## Repository layout
 
@@ -23,7 +24,7 @@ hamilton-hoover.com/
 │   ├── variables.tf
 │   ├── outputs.tf             # wif_provider, tf_org_sa_email → GitHub Actions vars
 │   └── terraform.tfvars.example
-├── org/                       # Organization layer — CI applies on every merge to main
+├── org/                       # Organization layer, CI applies on every merge to main
 │   ├── main.tf                # GCS backend (prefix: org), provider config
 │   ├── folders.tf             # Folder hierarchy: platform, shared-services, nonprod, prod, sandbox
 │   ├── org-policies.tf        # 9 org policies (OrgPolicy v2)
@@ -41,13 +42,14 @@ hamilton-hoover.com/
 
 ## CI/CD pipeline
 
-Every PR against `org/**` triggers:
-1. **fmt** — `terraform fmt -check`
-2. **validate** — `terraform validate` (authenticates via WIF, no keys)
-3. **plan** — posts the plan as a PR comment
-4. **apply** — runs on merge to `main`, gated by the `apply` GitHub Environment (required reviewer)
+Every PR against `org/**` runs:
 
-Authentication uses Workload Identity Federation — no long-lived keys anywhere.
+1. **fmt**: `terraform fmt -check`
+2. **validate**: `terraform validate`, authenticating via WIF
+3. **plan**: posts the plan as a PR comment
+4. **apply**: runs on merge to `main`, gated by the `apply` GitHub Environment with a required reviewer
+
+Authentication goes through Workload Identity Federation, so there are no long-lived keys stored anywhere. Fork PRs are blocked from triggering CI.
 
 ## Folder hierarchy
 
@@ -62,7 +64,7 @@ Organization (hamilton-hoover.com)
 
 ## Security posture (org-wide)
 
-All policies enforced at org root via OrgPolicy v2 and inherited by every folder and project:
+These are enforced at the org root through OrgPolicy v2 and inherited by every folder and project underneath:
 
 | Policy | Constraint |
 |---|---|
@@ -76,11 +78,11 @@ All policies enforced at org root via OrgPolicy v2 and inherited by every folder
 | US regions only | `gcp.resourceLocations` |
 | IAM members restricted to Cloud Identity tenant | `iam.allowedPolicyMemberDomains` |
 
-Data Access audit logs (ADMIN_READ, DATA_READ, DATA_WRITE) enabled on all services.
+Data Access audit logs (ADMIN_READ, DATA_READ, DATA_WRITE) are on for all services.
 
-## Getting started locally
+## Running it locally
 
-Local runs are rarely needed — CI handles everything. If you need to run locally:
+CI handles the normal path, so local runs are rare. If you need one:
 
 ```bash
 cd org/
@@ -91,7 +93,7 @@ terraform init
 terraform plan
 ```
 
-The `bootstrap/` layer is applied manually and almost never changes:
+The `bootstrap/` layer gets applied by hand and changes maybe once a year:
 
 ```bash
 cd bootstrap/
@@ -102,10 +104,15 @@ terraform apply
 # Copy wif_provider and tf_org_sa_email outputs to GitHub Actions → Variables
 ```
 
-## Guiding principles
+## How I work in this repo
 
-- Everything is code. If it isn't in Git, it doesn't exist.
-- CI/CD enforces correctness, not speed.
-- Cost discipline is a feature — budgets are set before workloads.
-- Least privilege by default. Scope widens only with justification.
-- No manual IAM changes, no manual project creation, no unmanaged resources.
+A few rules I hold myself to here:
+
+- If it isn't in Git, it doesn't exist. Anything I can't rebuild from this repo doesn't belong in the org.
+- Budgets get set before workloads, not after the first surprise bill.
+- Permissions start narrow. Widening them requires a reason I'd be willing to defend in a review.
+- No manual IAM edits, no manual project creation. Drift gets treated as a bug.
+
+## A note on tooling
+
+I used Claude to help write and review a good portion of the Terraform and workflow code here. The architecture, the policy choices, and the decisions about what belongs in which layer are mine. Claude was useful for getting from a design I had in my head to working HCL faster than I would have on my own, and for catching things in review. Seemed worth saying plainly rather than leaving it implied.
