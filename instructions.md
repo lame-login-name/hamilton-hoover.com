@@ -2,7 +2,7 @@
 
 This is my build guide for the GCP organization behind hamilton-hoover.com. It doubles as a working showcase of how I'd architect a cloud platform when nobody is constraining the design.
 
-What I'm after is a governed, automated, low-cost platform that holds up under scrutiny. Anyone can stand up a demo. The interesting part is whether the thing can be operated and changed over time without falling apart.
+What I'm after is a governed, automated, cost-controlled platform that holds up under scrutiny. Anyone can stand up a demo. The interesting part is whether the thing can be operated and changed over time without falling apart.
 
 ⸻
 
@@ -146,7 +146,10 @@ Monorepo over multi-repo. Layers:
 
 - `bootstrap/`: WIF, service accounts. Applied manually, rarely changes.
 - `org/`: org structure, policies, IAM, budgets. CI-managed.
-- Future: `infrastructure/`, `projects/`, `modules/` in the same repo
+- `modules/`: vetted building blocks. Everything is created through one of these.
+- `infrastructure/`: shared services (logging today, DNS and networking later). CI-managed.
+
+Directories get created when there's real content for them, not to reserve the name.
 
 ### 2.3 GitHub Actions Baseline ✅
 

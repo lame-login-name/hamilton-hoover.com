@@ -18,6 +18,38 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Phase 4 — Platform Foundation
 
+### 2026-05-27
+
+#### Removed — Phase 0 scaffolding pruned
+Deleted four directories of generated scaffolding that had never been initialized,
+never held state, and never been applied. Verified before removal: no `backend` blocks,
+no `.terraform` directories, and no references from live code — every cross-reference
+pointed from one dead directory to another.
+
+| Removed | Why |
+|---|---|
+| `global/` (8 files) | Phase 0 shared-VPC/interconnect scaffolding, provider v4, referenced projects that don't exist |
+| `infrastructure/non-prod/` (8 files) | Same content re-homed by PR #6; superseded by `infrastructure/nonprod/` |
+| `infrastructure/prod/` (8 files) | Same, prod variant |
+| `projects/` (5 files) | Sample project template with KMS/Cloud SQL/GKE blocks that were never used |
+
+Rationale beyond tidiness:
+
+- **`non-prod/` and `nonprod/` sat side by side.** Nearly identical names, one live and one
+  dead, in the same parent directory. That is a mistake waiting to be made.
+- **The dead directories were inside a CI trigger path.** `terraform-infrastructure.yml`
+  watches `infrastructure/**` and runs `fmt -check -recursive` across it, so unformatted
+  dead code failed a real CI run during the Phase 4 build.
+- **Ambiguity is expensive for automation.** Four competing networking configurations with
+  no marker for which is authoritative is hard for a person to navigate and worse for any
+  tooling pointed at the repo later.
+
+Also rewrote `infrastructure/README.md` and `modules/README.md`, which documented an
+aspirational structure rather than the real one — `modules/README.md` listed sixteen modules
+when exactly one exists. Both now describe what is actually in the tree.
+
+Recovery, should any of it ever be wanted: `git show 25224ee:<path>`.
+
 ### 2026-05-18
 
 #### Fixed — BigQuery API race condition (`fix/bigquery-depends-on` → PR #16)
