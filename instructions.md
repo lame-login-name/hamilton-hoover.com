@@ -1,4 +1,4 @@
-# Personal & Professional GCP GitOps Platform
+# hamilton-hoover.com: Platform Build Guide
 
 This is my build guide for the GCP organization behind hamilton-hoover.com. It doubles as a working showcase of how I'd architect a cloud platform when nobody is constraining the design.
 
