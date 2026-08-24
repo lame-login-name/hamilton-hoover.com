@@ -2,7 +2,7 @@
 
 This is my build guide for the GCP organization behind hamilton-hoover.com. It doubles as a working showcase of how I'd architect a cloud platform when nobody is constraining the design.
 
-What I'm after is a governed, automated, low-cost platform that holds up under scrutiny. Anyone can stand up a demo. The interesting part is whether the thing can be operated and changed over time without falling apart.
+What I'm after is a governed, automated, cost-controlled platform that holds up under scrutiny. Anyone can stand up a demo. The interesting part is whether the thing can be operated and changed over time without falling apart.
 
 ⸻
 
