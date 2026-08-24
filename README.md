@@ -4,6 +4,8 @@ My personal Google Cloud organization, managed as code. Aside from the initial b
 
 I built this because I wanted a place to run the same patterns I use professionally without a change advisory board in the way: org policy inheritance, Workload Identity Federation instead of service account keys, budgets wired up before any workload exists. It's small, but the structure is what I'd actually stand up at work.
 
+This is a work in progress. The foundation is solid and CI-managed, but workloads, shared networking, and the project factory are still being built out. The intent is to mature it progressively — each phase adds real infrastructure, not placeholder code.
+
 ## What's deployed
 
 | Layer | Directory | State |
