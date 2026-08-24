@@ -12,9 +12,11 @@ This is a work in progress. The foundation is solid and CI-managed, but workload
 |---|---|---|
 | WIF + CI service accounts | `bootstrap/` | Applied manually (once) |
 | Org structure, policies, IAM, budgets | `org/` | CI-managed |
-| Shared networking, DNS | `infrastructure/` | Planned, Phase 4 |
-| Project factory | `projects/` | Planned, Phase 4 |
-| Reusable modules | `modules/` | Planned, Phase 4 |
+| Project factory module | `modules/project/` | CI-managed |
+| Centralized logging (nonprod) | `infrastructure/nonprod/` | CI-managed |
+| Centralized logging (prod) | `infrastructure/prod/` | Next up |
+| Shared networking, DNS | `infrastructure/` | Planned |
+| Showcase workloads | — | Planned |
 
 ## Repository layout
 
@@ -36,9 +38,20 @@ hamilton-hoover.com/
 │   ├── variables.tf
 │   ├── ci.auto.tfvars         # Non-sensitive values auto-loaded in CI
 │   └── terraform.tfvars.example
+├── modules/                   # Vetted building blocks — everything goes through these
+│   └── project/               # Project factory: the platform contract
+├── infrastructure/            # Shared services, CI-managed via tf-infra
+│   └── nonprod/
+│       ├── main.tf            # GCS backend (prefix: infrastructure/nonprod)
+│       ├── logging.tf         # Logging project, BigQuery dataset, org audit sink
+│       ├── variables.tf
+│       ├── ci.auto.tfvars
+│       └── terraform.tfvars.example
 ├── .github/
 │   └── workflows/
-│       └── terraform-org.yml  # fmt → validate → plan (PR) → apply (merge)
+│       ├── terraform-org.yml            # org/ — fmt → validate → plan → apply
+│       └── terraform-infrastructure.yml # infrastructure/ + modules/
+├── CHANGELOG.md               # Build history, decisions, lessons learned
 └── instructions.md            # Build guide and phase roadmap
 ```
 
