@@ -134,6 +134,26 @@ resource "google_storage_bucket_iam_member" "tf_infra_state" {
 
 # --- Folder-level roles for tf-infra (shared-services folder) ---
 # Scoped to shared-services only — tf-infra cannot touch prod or nonprod workload folders.
+#
+# Every role below exists because a specific resource in infrastructure/ needs it:
+#
+#   google_project.this               → projectCreator, projectDeleter
+#   google_project_service.apis       → serviceUsageAdmin
+#   google_bigquery_dataset           → bigquery.dataOwner
+#   google_bigquery_dataset_iam_member→ bigquery.dataOwner (datasets.setIamPolicy)
+#
+# Org-level and billing-level grants live further down; they cover the org log
+# sink and billing attachment respectively.
+#
+# Deliberately NOT granted here: roles/editor.
+#
+# GCP grants roles/owner on a project to whichever identity creates it, so
+# tf-infra already holds owner on every project it provisions — verified on
+# hh-logging-nonprod. A folder-wide editor binding adds nothing for those
+# projects and additionally covers any project tf-infra did NOT create, which
+# is precisely the blast radius worth avoiding. The narrow roles below are
+# still declared explicitly rather than leaning on that implicit owner grant,
+# so this keeps working if the owner binding is ever cleaned up.
 
 resource "google_folder_iam_member" "tf_infra_project_creator" {
   folder = "folders/${var.shared_services_folder_id}"
@@ -147,15 +167,21 @@ resource "google_folder_iam_member" "tf_infra_project_deleter" {
   member = "serviceAccount:${google_service_account.tf_infra.email}"
 }
 
-resource "google_folder_iam_member" "tf_infra_editor" {
+# Enables APIs during project creation, before the implicit owner binding on the
+# new project is usable.
+resource "google_folder_iam_member" "tf_infra_service_usage" {
   folder = "folders/${var.shared_services_folder_id}"
-  role   = "roles/editor"
+  role   = "roles/serviceusage.serviceUsageAdmin"
   member = "serviceAccount:${google_service_account.tf_infra.email}"
 }
 
-resource "google_folder_iam_member" "tf_infra_bigquery_admin" {
+# dataOwner covers datasets.create / update / delete / setIamPolicy — everything
+# the audit log dataset and its sink-writer binding need. bigquery.admin would
+# additionally grant job, reservation, and transfer permissions that nothing in
+# this repo uses.
+resource "google_folder_iam_member" "tf_infra_bigquery_data_owner" {
   folder = "folders/${var.shared_services_folder_id}"
-  role   = "roles/bigquery.admin"
+  role   = "roles/bigquery.dataOwner"
   member = "serviceAccount:${google_service_account.tf_infra.email}"
 }
 
