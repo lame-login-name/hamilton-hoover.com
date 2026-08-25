@@ -35,6 +35,13 @@ grant, so the layer keeps working if that binding is ever cleaned up.
 
 Verified plan: `2 to add, 0 to change, 2 to destroy` — no other resource touched.
 
+**Applied 2026-05-27.** Post-apply folder IAM for `tf-infra` confirmed as exactly:
+`resourcemanager.projectCreator`, `resourcemanager.projectDeleter`,
+`serviceusage.serviceUsageAdmin`, `bigquery.dataOwner`. The role set is documented
+in [`infrastructure/README.md`](infrastructure/README.md#permissions) alongside the
+resources that need it, so the next person to add a resource type there has a reason
+to grant narrowly instead of widening an existing binding.
+
 #### Fixed — `bootstrap/terraform.tfvars` placeholder landmine
 The local `bootstrap/terraform.tfvars` was an unmodified copy of the example file,
 every value still `"TODO"`. Because `bootstrap/` is applied by hand and no CI plan
