@@ -18,6 +18,57 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Phase 4 — Platform Foundation
 
+### 2026-05-27 (later)
+
+#### Changed — `tf-infra` least privilege: `roles/editor` removed
+Replaced the folder-level grants on `shared-services` with the narrowest roles that
+cover the resources actually declared in `infrastructure/`:
+
+| Before | After | Why |
+|---|---|---|
+| `roles/editor` | *(removed)* | GCP grants `roles/owner` on a project to whichever identity creates it. `tf-infra` already holds owner on every project it provisions — verified on `hh-logging-nonprod`. The folder-wide editor binding added nothing for those projects and additionally covered any project `tf-infra` did **not** create. |
+| `roles/bigquery.admin` | `roles/bigquery.dataOwner` | `dataOwner` covers `datasets.create/update/delete/setIamPolicy` — verified against the role definition. `admin` additionally grants job, reservation, and transfer permissions that nothing here uses. |
+| — | `roles/serviceusage.serviceUsageAdmin` | Enables APIs during project creation, before the implicit owner binding on the new project is usable. |
+
+The narrow roles are declared explicitly rather than leaning on the implicit owner
+grant, so the layer keeps working if that binding is ever cleaned up.
+
+Verified plan: `2 to add, 0 to change, 2 to destroy` — no other resource touched.
+
+#### Fixed — `bootstrap/terraform.tfvars` placeholder landmine
+The local `bootstrap/terraform.tfvars` was an unmodified copy of the example file,
+every value still `"TODO"`. Because `bootstrap/` is applied by hand and no CI plan
+guards it, this did not fail — it produced a plan that would **replace the WIF pool,
+both Terraform service accounts, and all 20 of their IAM bindings**. Applying it
+would have destroyed the identities all CI depends on and required a full
+re-bootstrap plus new GitHub Actions variables.
+
+Real values were recovered from Terraform state and restored to the local file
+(gitignored, not committed).
+
+Added `validation` blocks to every variable in `bootstrap/variables.tf` rejecting
+the `TODO` placeholder, with format checks on the numeric and billing-account
+values. This converts a silently destructive plan into a plan-time error. Verified
+both directions: the guard fires against the placeholder file, and the corrected
+file still plans clean.
+
+#### Noted — org admin is outside the Cloud Identity tenant
+`org_admin_members` is `user:hamilton.hoover@gmail.com`, but the
+`iam.allowedPolicyMemberDomains` org policy restricts IAM members to customer
+`C013m3fwu`. A `gmail.com` identity is not in that directory.
+
+Existing bindings still work — the policy is evaluated at `setPolicy` time, not
+retroactively. But **any new IAM binding naming that identity is denied**, which
+surfaced concretely while querying the audit logs: BigQuery grants the query
+caller access to an anonymous results dataset, and that `setPolicy` was rejected
+with `One or more users named in the policy do not belong to a permitted customer`.
+The practical effect is that the org owner cannot run an ad-hoc BigQuery query
+against the audit dataset this platform exists to populate. Writing to an explicit
+destination table is the workaround; it avoids the anonymous dataset entirely.
+
+Not fixed here — the resolution is a real Cloud Identity user for admin, which is
+an account decision rather than a code change. Tracked as the next hardening item.
+
 ### 2026-05-27
 
 #### Removed — Phase 0 scaffolding pruned
